@@ -872,7 +872,7 @@ h1 {
     height: 100% !important;
 }
 .char-portrait-area.live2d-active .l2d-canvas-wrap { display: block; }
-.char-portrait-area.live2d-active #char-portrait-svg { opacity: 0.15; }
+.char-portrait-area.live2d-active #char-portrait-svg { display: none; }
 </style>
 <!-- Live2D Cubism 3 SDK (CDN from imuncle/live2d) -->
 <script src="https://imuncle.github.io/live2d/live2d_3/js/pixi.min.js"></script>
@@ -1318,7 +1318,7 @@ function createL2DApp() {
     const wrap = document.getElementById('l2d-canvas-wrap');
     if (!wrap) return;
     try {
-        l2dApp = new PIXI.Application(240, 360, { transparent: true });
+        l2dApp = new PIXI.Application(480, 720, { transparent: true });
         l2dApp.view.style.width = '100%';
         l2dApp.view.style.height = '100%';
         wrap.appendChild(l2dApp.view);
@@ -1484,9 +1484,9 @@ function loadLive2DModel(charId) {
         model.animator.addLayer('base', LIVE2DCUBISMFRAMEWORK.BuiltinAnimationBlenders.OVERRIDE, 1);
         l2dApp.stage.addChild(model);
         l2dApp.stage.addChild(model.masks);
-        // Position and scale to fit 240x360
-        model.position = new PIXI.Point(120, 240);
-        model.scale = new PIXI.Point(7, 7);
+        // Position and scale to fill portrait area
+        model.position = new PIXI.Point(240, 420);
+        model.scale = new PIXI.Point(18, 18);
         model.masks.resize(l2dApp.view.width, l2dApp.view.height);
         l2dCurrentModel = model;
         l2dCurrentCharId = charId;
