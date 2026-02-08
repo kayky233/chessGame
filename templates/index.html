@@ -116,6 +116,18 @@ h1 {
                 inset 0 1px 3px rgba(255,255,255,0.3);
 }
 
+.cell.capture::after {
+    content: '';
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(220, 0, 0, 0.18);
+    box-shadow: 0 0 14px rgba(220, 0, 0, 0.6);
+    animation: capturePulse 0.45s ease;
+    z-index: 2;
+}
+
 /* ==== Piece Styling ==== */
 .piece {
     width: 50px; height: 50px;
@@ -159,6 +171,10 @@ h1 {
                 2px 3px 6px rgba(0,0,0,0.3);
 }
 
+.piece.moved {
+    animation: movePop 0.18s ease;
+}
+
 /* ==== Overlay ==== */
 .overlay {
     position: absolute;
@@ -183,6 +199,17 @@ h1 {
 @keyframes pulse {
     0%, 100% { opacity: 0.6; transform: scale(1); }
     50% { opacity: 1; transform: scale(1.05); }
+}
+
+@keyframes movePop {
+    0% { transform: scale(0.9); }
+    60% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+@keyframes capturePulse {
+    0% { transform: scale(0.6); opacity: 0.2; }
+    100% { transform: scale(1.2); opacity: 0; }
 }
 
 /* ==== Controls ==== */
@@ -228,6 +255,36 @@ h1 {
     transition: background 0.2s, border-color 0.4s, color 0.4s;
 }
 .btn:hover { background: var(--btn-bg-hover); }
+
+.difficulty-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border: 1.5px solid var(--btn-border);
+    border-radius: 20px;
+    color: var(--status-color);
+    font-size: 14px;
+    letter-spacing: 1px;
+}
+
+.difficulty-label {
+    opacity: 0.85;
+}
+
+.difficulty-select {
+    background: transparent;
+    color: var(--status-color);
+    border: none;
+    outline: none;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.difficulty-select option {
+    color: #222;
+}
 
 .info-bar {
     margin-top: 10px;
@@ -293,6 +350,101 @@ h1 {
 .skin-cards {
     display: flex;
     gap: 14px;
+}
+
+/* ==== Puzzle Panel ==== */
+.puzzle-backdrop {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.65);
+    z-index: 90;
+    animation: fadeIn 0.2s ease;
+}
+.puzzle-backdrop.show { display: block; }
+
+.puzzle-panel {
+    display: none;
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background: linear-gradient(180deg, rgba(18,18,35,0.98), rgba(12,12,24,0.98));
+    border: 1.5px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 24px 22px 20px;
+    z-index: 100;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    min-width: 520px;
+    opacity: 0;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.puzzle-panel.show {
+    display: block;
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+}
+
+.puzzle-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+}
+.puzzle-panel-title {
+    color: #fff;
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 3px;
+}
+.puzzle-panel-close {
+    color: #888;
+    font-size: 26px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+    transition: color 0.2s;
+}
+.puzzle-panel-close:hover { color: #fff; }
+
+.puzzle-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.puzzle-card {
+    background: rgba(255,255,255,0.03);
+    border: 1.5px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 12px 10px;
+    text-align: left;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.puzzle-card:hover {
+    border-color: rgba(255,255,255,0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+.puzzle-card.locked {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.puzzle-name {
+    color: #f5f5f5;
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+.puzzle-meta {
+    color: #9aa3b2;
+    font-size: 12px;
+}
+.puzzle-stars {
+    color: #FFD700;
+    font-size: 12px;
+    margin-bottom: 6px;
 }
 
 .skin-card {
@@ -429,6 +581,8 @@ h1 {
     h1 { font-size: 24px; }
     .skin-panel { min-width: auto; width: 92vw; padding: 20px 14px; }
     .skin-cards { flex-direction: column; }
+    .puzzle-panel { min-width: auto; width: 92vw; padding: 20px 14px; }
+    .puzzle-list { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
 </head>
@@ -445,11 +599,31 @@ h1 {
     <div class="controls">
         <span class="win-counter" id="win-counter">胜: 0 局</span>
         <span id="status">红方回合</span>
+        <span class="difficulty-wrap">
+            <span class="difficulty-label">难度</span>
+            <select id="difficulty-select" class="difficulty-select">
+                <option value="easy">新手</option>
+                <option value="normal">进阶</option>
+                <option value="hard" selected>困难</option>
+                <option value="master">大师</option>
+            </select>
+        </span>
         <button class="btn" id="btn-new">新 局</button>
         <button class="btn" id="btn-undo">悔 棋</button>
+        <button class="btn" id="btn-puzzle">残 局</button>
         <button class="btn" id="btn-skin">皮 肤</button>
     </div>
     <div class="info-bar" id="info-bar"></div>
+</div>
+
+<!-- Puzzle Panel -->
+<div id="puzzle-backdrop" class="puzzle-backdrop"></div>
+<div id="puzzle-panel" class="puzzle-panel">
+    <div class="puzzle-panel-header">
+        <span class="puzzle-panel-title">残局挑战</span>
+        <span class="puzzle-panel-close" id="puzzle-close">&times;</span>
+    </div>
+    <div class="puzzle-list" id="puzzle-list"></div>
 </div>
 
 <!-- Skin Selection Panel -->
@@ -570,10 +744,636 @@ const SKINS = [
 ];
 
 /* ================================================================
+   Difficulty Config
+   ================================================================ */
+const DIFFICULTY_LEVELS = [
+    { id: 'easy', name: '新手', depth: 2 },
+    { id: 'normal', name: '进阶', depth: 3 },
+    { id: 'hard', name: '困难', depth: 4 },
+    { id: 'master', name: '大师', depth: 5 },
+];
+
+function getDifficulty(id) {
+    return DIFFICULTY_LEVELS.find(d => d.id === id) || DIFFICULTY_LEVELS[2];
+}
+
+/* ================================================================
+   Puzzle (Stub Data for UI)
+   ================================================================ */
+function makeEmptyBoard() {
+    return Array.from({ length: 10 }, () => Array(9).fill(null));
+}
+
+const PUZZLES = [
+    {
+        id: 'p1',
+        name: '一招制胜',
+        stars: 1,
+        maxMoves: 1,
+        side: 'r',
+        hint: '直线冲杀，将军即胜',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,'r_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p2',
+        name: '双车连杀',
+        stars: 2,
+        maxMoves: 3,
+        side: 'r',
+        hint: '双车先抢中路',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p3',
+        name: '炮马配合',
+        stars: 2,
+        maxMoves: 3,
+        side: 'r',
+        hint: '炮先手，马补杀',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,'r_pao',null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,'r_ma',null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p4',
+        name: '中路突破',
+        stars: 3,
+        maxMoves: 5,
+        side: 'r',
+        hint: '破士成杀',
+        board: [
+            [null,null,null,'b_shi','b_jiang','b_shi',null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,'r_pao','r_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p5',
+        name: '铁壁反击',
+        stars: 3,
+        maxMoves: 5,
+        side: 'r',
+        hint: '中线强攻',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,'r_pao',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p6',
+        name: '困龙出海',
+        stars: 3,
+        maxMoves: 7,
+        side: 'r',
+        hint: '马炮配合破防',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,'b_shi',null,'b_shi',null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_ma',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,'r_pao',null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p7',
+        name: '边路突击',
+        stars: 2,
+        maxMoves: 4,
+        side: 'r',
+        hint: '车走边线压制',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            ['r_che',null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p8',
+        name: '双炮夹击',
+        stars: 3,
+        maxMoves: 5,
+        side: 'r',
+        hint: '双炮锁将',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,'r_pao',null,null,null,'r_pao',null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p9',
+        name: '车马配合',
+        stars: 3,
+        maxMoves: 6,
+        side: 'r',
+        hint: '车先控线',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,'r_ma',null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p10',
+        name: '双车压制',
+        stars: 4,
+        maxMoves: 7,
+        side: 'r',
+        hint: '双车并行逼宫',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,'r_che',null,'r_che',null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p11',
+        name: '底线迫杀',
+        stars: 2,
+        maxMoves: 4,
+        side: 'r',
+        hint: '车压底线',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,'r_che',null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p12',
+        name: '双兵开路',
+        stars: 2,
+        maxMoves: 4,
+        side: 'r',
+        hint: '兵路开门',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,'r_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p13',
+        name: '马踏中宫',
+        stars: 3,
+        maxMoves: 5,
+        side: 'r',
+        hint: '马先跳中宫',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,'b_shi',null,'b_shi',null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_ma',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p14',
+        name: '炮打中军',
+        stars: 3,
+        maxMoves: 5,
+        side: 'r',
+        hint: '炮直打中线',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,'r_pao',null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p15',
+        name: '车炮协同',
+        stars: 3,
+        maxMoves: 6,
+        side: 'r',
+        hint: '炮先牵制',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,'r_pao',null,null,null,null,null],
+            [null,null,null,null,'r_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p16',
+        name: '双马围杀',
+        stars: 4,
+        maxMoves: 6,
+        side: 'r',
+        hint: '双马夹击',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,'b_shi',null,'b_shi',null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,'r_ma',null,null,null,'r_ma',null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p17',
+        name: '炮车压线',
+        stars: 4,
+        maxMoves: 7,
+        side: 'r',
+        hint: '炮先控线',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,'r_che',null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,'r_pao',null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p18',
+        name: '边马突进',
+        stars: 3,
+        maxMoves: 6,
+        side: 'r',
+        hint: '边马迂回',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,'r_ma',null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p19',
+        name: '换子强攻',
+        stars: 4,
+        maxMoves: 7,
+        side: 'r',
+        hint: '先交换再杀',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,'r_pao',null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p20',
+        name: '中路串杀',
+        stars: 4,
+        maxMoves: 7,
+        side: 'r',
+        hint: '中线贯通',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,'b_shi',null,'b_shi',null,null,null],
+            [null,null,null,null,'r_pao',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_che',null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p21',
+        name: '黑方反击',
+        stars: 2,
+        maxMoves: 4,
+        side: 'b',
+        hint: '黑先手抢攻',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,'b_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p22',
+        name: '黑炮锁杀',
+        stars: 3,
+        maxMoves: 5,
+        side: 'b',
+        hint: '炮架将',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,'b_pao',null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p23',
+        name: '双车并进',
+        stars: 4,
+        maxMoves: 7,
+        side: 'r',
+        hint: '两翼齐攻',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            ['r_che',null,null,null,null,null,null,null,'r_che'],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p24',
+        name: '兵临城下',
+        stars: 3,
+        maxMoves: 6,
+        side: 'r',
+        hint: '兵先顶将',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p25',
+        name: '炮兵协杀',
+        stars: 3,
+        maxMoves: 6,
+        side: 'r',
+        hint: '兵作炮架',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,'r_pao',null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p26',
+        name: '车路打开',
+        stars: 4,
+        maxMoves: 7,
+        side: 'r',
+        hint: '车破中线',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p27',
+        name: '车马围城',
+        stars: 4,
+        maxMoves: 7,
+        side: 'r',
+        hint: '车控线马收口',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_che',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,'r_ma',null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p28',
+        name: '双炮突进',
+        stars: 4,
+        maxMoves: 7,
+        side: 'r',
+        hint: '双炮并进',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,'r_pao',null,null,null,'r_pao',null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p29',
+        name: '双车压杀',
+        stars: 4,
+        maxMoves: 8,
+        side: 'r',
+        hint: '压线逼宫',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,'r_che',null,'r_che',null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+    {
+        id: 'p30',
+        name: '强攻收官',
+        stars: 5,
+        maxMoves: 8,
+        side: 'r',
+        hint: '集中火力',
+        board: [
+            [null,null,null,null,'b_jiang',null,null,null,null],
+            [null,null,null,'b_shi',null,'b_shi',null,null,null],
+            [null,null,null,'r_che',null,'r_pao',null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,'r_ma',null,null,null,null,null,null],
+            [null,null,null,null,'r_bing',null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,null,null,null,null,null],
+            [null,null,null,null,'r_shuai',null,null,null,null],
+        ],
+    },
+];
+
+/* ================================================================
    Skin System State & Functions
    ================================================================ */
 let currentSkinId = 'classic';
 let wins = 0;
+let currentDifficulty = 'hard';
+let puzzleProgress = {};
 
 function getSkin(id) {
     return SKINS.find(s => s.id === id) || SKINS[0];
@@ -602,6 +1402,8 @@ function loadProfile() {
             const p = JSON.parse(raw);
             wins = p.wins || 0;
             currentSkinId = p.skin || 'classic';
+            currentDifficulty = p.difficulty || 'hard';
+            puzzleProgress = p.puzzleProgress || {};
         }
     } catch (e) { /* ignore */ }
     /* Safety: if saved skin is locked, fallback */
@@ -614,6 +1416,8 @@ function saveProfile() {
         localStorage.setItem('xiangqi_profile', JSON.stringify({
             wins: wins,
             skin: currentSkinId,
+            difficulty: currentDifficulty,
+            puzzleProgress: puzzleProgress,
         }));
     } catch (e) { /* ignore */ }
 }
@@ -736,6 +1540,116 @@ function renderSkinCards() {
     }
 }
 
+/* ==== Puzzle Panel ==== */
+function openPuzzlePanel() {
+    renderPuzzleList();
+    document.getElementById('puzzle-backdrop').classList.add('show');
+    requestAnimationFrame(() => {
+        document.getElementById('puzzle-panel').classList.add('show');
+    });
+}
+
+function closePuzzlePanel() {
+    document.getElementById('puzzle-panel').classList.remove('show');
+    document.getElementById('puzzle-backdrop').classList.remove('show');
+}
+
+function renderPuzzleList() {
+    const list = document.getElementById('puzzle-list');
+    if (!list) return;
+    list.innerHTML = '';
+    for (let i = 0; i < PUZZLES.length; i++) {
+        const p = PUZZLES[i];
+        const card = document.createElement('div');
+        card.className = 'puzzle-card';
+        const progress = puzzleProgress[p.id];
+        const prevId = i > 0 ? PUZZLES[i - 1].id : null;
+        const unlocked = i === 0 || (prevId && puzzleProgress[prevId] && puzzleProgress[prevId].cleared);
+        if (!unlocked) card.classList.add('locked');
+
+        const name = document.createElement('div');
+        name.className = 'puzzle-name';
+        name.textContent = p.name;
+
+        const stars = document.createElement('div');
+        stars.className = 'puzzle-stars';
+        stars.textContent = '★'.repeat(p.stars);
+
+        const meta = document.createElement('div');
+        meta.className = 'puzzle-meta';
+        meta.textContent = '限步: ' + p.maxMoves + ' 步';
+
+        const hint = document.createElement('div');
+        hint.className = 'puzzle-meta';
+        hint.textContent = '提示: ' + (p.hint || '暂无');
+
+        const status = document.createElement('div');
+        status.className = 'puzzle-meta';
+        if (progress && progress.cleared) {
+            status.textContent = '已通关 · 最佳 ' + (progress.bestMoves || '-') + ' 步';
+        } else {
+            status.textContent = '未通关';
+        }
+
+        card.appendChild(stars);
+        card.appendChild(name);
+        card.appendChild(meta);
+        card.appendChild(hint);
+        card.appendChild(status);
+
+        if (unlocked) {
+            card.addEventListener('click', () => {
+                startPuzzle(p);
+                closePuzzlePanel();
+            });
+        }
+
+        if (!unlocked) {
+            status.textContent = '未解锁（需通关上一关）';
+        }
+
+        list.appendChild(card);
+    }
+}
+
+function startPuzzle(puzzle) {
+    puzzleActive = true;
+    puzzleId = puzzle.id;
+    puzzleMoves = 0;
+    puzzleMaxMoves = puzzle.maxMoves;
+    puzzleSide = puzzle.side || 'r';
+    document.getElementById('info-bar').textContent = '提示: ' + (puzzle.hint || '暂无');
+    board = puzzle.board.map(row => [...row]);
+    selectedPos = null;
+    validMoves = [];
+    currentTurn = puzzleSide;
+    gameOver = false;
+    lastMove = null;
+    lastCapture = null;
+    lastCapturedPiece = null;
+    history = [];
+    showOverlay(false);
+    updatePuzzleStatus();
+    renderPieces();
+}
+
+function updatePuzzleStatus() {
+    const remain = Math.max(0, puzzleMaxMoves - puzzleMoves);
+    setStatus('残局挑战（剩余 ' + remain + ' 步）');
+    if (!document.getElementById('info-bar').textContent.startsWith('提示')) {
+        document.getElementById('info-bar').textContent =
+            '残局模式 · 已用 ' + puzzleMoves + ' / ' + puzzleMaxMoves + ' 步';
+    }
+}
+
+function markPuzzleCleared(id, movesUsed) {
+    const record = puzzleProgress[id];
+    if (!record || !record.cleared || movesUsed < (record.bestMoves || Infinity)) {
+        puzzleProgress[id] = { cleared: true, bestMoves: movesUsed };
+        saveProfile();
+    }
+}
+
 /* ================================================================
    Constants
    ================================================================ */
@@ -771,7 +1685,14 @@ let validMoves = [];
 let currentTurn = 'r';
 let gameOver = false;
 let lastMove = null;
+let lastCapture = null;
+let lastCapturedPiece = null;
 let history = [];
+let puzzleActive = false;
+let puzzleId = null;
+let puzzleMoves = 0;
+let puzzleMaxMoves = 0;
+let puzzleSide = 'r';
 
 /* ================================================================
    Board Drawing (SVG) — reads skin colors
@@ -886,6 +1807,9 @@ function renderPieces() {
                 if (r === lastMove.fr && c === lastMove.fc) cell.classList.add('last-from');
                 if (r === lastMove.tr && c === lastMove.tc) cell.classList.add('last-to');
             }
+            if (lastCapture && r === lastCapture.r && c === lastCapture.c) {
+                cell.classList.add('capture');
+            }
 
             const piece = board[r][c];
             const isValidTarget = validMoves.some(m => m[0] === r && m[1] === c);
@@ -897,6 +1821,9 @@ function renderPieces() {
 
                 if (selectedPos && selectedPos[0] === r && selectedPos[1] === c) {
                     div.classList.add('selected');
+                }
+                if (lastMove && lastMove.tr === r && lastMove.tc === c) {
+                    div.classList.add('moved');
                 }
                 if (isValidTarget) {
                     cell.classList.add('valid-capture');
@@ -1103,7 +2030,9 @@ function hasAnyLegalMove(b, color) {
    Click Handler
    ================================================================ */
 function handleClick(r, c) {
-    if (gameOver || currentTurn !== 'r') return;
+    if (gameOver) return;
+    if (puzzleActive && currentTurn !== puzzleSide) return;
+    if (!puzzleActive && currentTurn !== 'r') return;
     const piece = board[r][c];
 
     if (selectedPos) {
@@ -1116,6 +2045,10 @@ function handleClick(r, c) {
             renderPieces();
 
             if (!gameOver) {
+                if (puzzleActive) {
+                    afterPuzzleMove();
+                    return;
+                }
                 currentTurn = 'b';
                 setStatus('AI 思考中...');
                 showOverlay(true);
@@ -1135,7 +2068,7 @@ function handleClick(r, c) {
         return;
     }
 
-    if (piece && piece[0] === 'r') {
+    if (piece && piece[0] === currentTurn) {
         selectedPos = [r, c];
         validMoves = getLegalMoves(board, r, c);
         renderPieces();
@@ -1150,17 +2083,21 @@ function doMove(fr, fc, tr, tc) {
     board[tr][tc] = board[fr][fc];
     board[fr][fc] = null;
     lastMove = { fr, fc, tr, tc };
+    lastCapture = captured ? { r: tr, c: tc } : null;
+    lastCapturedPiece = captured || null;
 
     if (captured) {
         if (captured === 'b_jiang') {
             gameOver = true;
             setStatus('红方胜利！');
             showOverlay(false);
-            /* --- Win tracking --- */
-            wins++;
-            updateWinCounter();
-            saveProfile();
-            checkUnlock();
+            if (!puzzleActive) {
+                /* --- Win tracking --- */
+                wins++;
+                updateWinCounter();
+                saveProfile();
+                checkUnlock();
+            }
         } else if (captured === 'r_shuai') {
             gameOver = true;
             setStatus('黑方胜利！');
@@ -1169,11 +2106,62 @@ function doMove(fr, fc, tr, tc) {
     }
 }
 
+function afterPuzzleMove() {
+    puzzleMoves += 1;
+    const targetKing = puzzleSide === 'r' ? 'b_jiang' : 'r_shuai';
+
+    if (gameOver && lastCapturedPiece === targetKing) {
+            setStatus('残局成功！');
+            document.getElementById('info-bar').textContent = '通关完成';
+            markPuzzleCleared(puzzleId, puzzleMoves);
+            renderPuzzleList();
+            const next = getNextPuzzle(puzzleId);
+            if (next) {
+                setTimeout(() => {
+                    const goNext = window.confirm('通关成功！是否进入下一关？');
+                    if (goNext) {
+                        startPuzzle(next);
+                    } else {
+                        openPuzzlePanel();
+                    }
+                }, 50);
+            } else {
+                setTimeout(() => openPuzzlePanel(), 50);
+            }
+            return;
+    }
+
+    if (puzzleMoves >= puzzleMaxMoves) {
+        gameOver = true;
+        setStatus('挑战失败（超出步数）');
+        document.getElementById('info-bar').textContent = '请重试';
+        return;
+    }
+
+    updatePuzzleStatus();
+}
+
+function getNextPuzzle(id) {
+    const idx = PUZZLES.findIndex(p => p.id === id);
+    if (idx < 0 || idx >= PUZZLES.length - 1) return null;
+    const next = PUZZLES[idx + 1];
+    const prevId = PUZZLES[idx].id;
+    if (puzzleProgress[prevId] && puzzleProgress[prevId].cleared) {
+        return next;
+    }
+    return null;
+}
+
 function saveHistory() {
     history.push({
         board: board.map(row => [...row]),
         lastMove: lastMove ? { ...lastMove } : null,
         turn: currentTurn,
+        puzzleActive: puzzleActive,
+        puzzleId: puzzleId,
+        puzzleMoves: puzzleMoves,
+        puzzleMaxMoves: puzzleMaxMoves,
+        puzzleSide: puzzleSide,
     });
 }
 
@@ -1182,10 +2170,11 @@ function saveHistory() {
    ================================================================ */
 async function requestAIMove() {
     try {
+        const diff = getDifficulty(currentDifficulty);
         const res = await fetch('/ai-move', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ board }),
+            body: JSON.stringify({ board, depth: diff.depth }),
         });
         const data = await res.json();
         showOverlay(false);
@@ -1196,7 +2185,7 @@ async function requestAIMove() {
             doMove(from[0], from[1], to[0], to[1]);
             renderPieces();
 
-            const info = 'AI: ' + (data.nodes || '?') + ' 节点, ' + (data.time || '?') + 's';
+            const info = '难度: ' + diff.name + ' | AI: ' + (data.nodes || '?') + ' 节点, ' + (data.time || '?') + 's';
             document.getElementById('info-bar').textContent = info;
 
             if (!gameOver) {
@@ -1240,16 +2229,32 @@ function showOverlay(show) {
 }
 
 function undoMove() {
+    if (puzzleActive) {
+        setStatus('残局模式不支持悔棋');
+        document.getElementById('info-bar').textContent = '请重新挑战该关卡';
+        return;
+    }
     if (history.length < 2 || gameOver) return;
     history.pop();
     const prev = history.pop();
     board = prev.board;
     lastMove = prev.lastMove;
-    currentTurn = 'r';
+    lastCapture = null;
+    lastCapturedPiece = null;
+    currentTurn = prev.turn || 'r';
+    puzzleActive = prev.puzzleActive || false;
+    puzzleId = prev.puzzleId || null;
+    puzzleMoves = prev.puzzleMoves || 0;
+    puzzleMaxMoves = prev.puzzleMaxMoves || 0;
+    puzzleSide = prev.puzzleSide || 'r';
     selectedPos = null;
     validMoves = [];
-    setStatus('红方回合');
-    document.getElementById('info-bar').textContent = '';
+    if (puzzleActive) {
+        updatePuzzleStatus();
+    } else {
+        setStatus('红方回合');
+        document.getElementById('info-bar').textContent = '';
+    }
     renderPieces();
 }
 
@@ -1260,7 +2265,14 @@ function newGame() {
     currentTurn = 'r';
     gameOver = false;
     lastMove = null;
+    lastCapture = null;
+    lastCapturedPiece = null;
     history = [];
+    puzzleActive = false;
+    puzzleId = null;
+    puzzleMoves = 0;
+    puzzleMaxMoves = 0;
+    puzzleSide = 'r';
     setStatus('红方回合');
     showOverlay(false);
     document.getElementById('info-bar').textContent = '';
@@ -1278,9 +2290,19 @@ function init() {
 
     document.getElementById('btn-new').addEventListener('click', newGame);
     document.getElementById('btn-undo').addEventListener('click', undoMove);
+    document.getElementById('btn-puzzle').addEventListener('click', openPuzzlePanel);
     document.getElementById('btn-skin').addEventListener('click', openSkinPanel);
     document.getElementById('skin-close').addEventListener('click', closeSkinPanel);
     document.getElementById('skin-backdrop').addEventListener('click', closeSkinPanel);
+    document.getElementById('puzzle-close').addEventListener('click', closePuzzlePanel);
+    document.getElementById('puzzle-backdrop').addEventListener('click', closePuzzlePanel);
+
+    const diffSelect = document.getElementById('difficulty-select');
+    diffSelect.value = currentDifficulty;
+    diffSelect.addEventListener('change', () => {
+        currentDifficulty = diffSelect.value;
+        saveProfile();
+    });
 }
 
 window.addEventListener('DOMContentLoaded', init);
