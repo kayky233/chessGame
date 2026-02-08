@@ -11,13 +11,14 @@ Concurrency features:
 - /stats endpoint for live server metrics
 """
 
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response, stream_with_context
 from flask_cors import CORS
 from engine import XiangqiEngine
 import time
 import threading
 import os
 import random
+import json
 
 app = Flask(__name__)
 CORS(app)
@@ -234,6 +235,53 @@ CHARACTERS = {
     },
 }
 
+# ================================================================
+# LLM System Prompts per Character
+# ================================================================
+SYSTEM_PROMPTS = {
+    'qingluan': """你是「青鸾」，一个活泼可爱的少女棋手角色。
+性格：元气、傲娇、爱逞强，偶尔害羞。口癖是"本姑娘"。
+说话风格：用口语化的中文，夹杂"嘻嘻""哼""哈"等语气词，偶尔用"~"结尾。
+棋力设定：新手级别，会犯错但不服输。
+重要规则：
+- 每次只回复1句台词（15-35字），不要加引号
+- 要符合当前场景的情绪
+- 保持角色一致性，绝不出戏""",
+
+    'yinshuang': """你是「银霜」，一位修行千年的仙侠棋灵。
+性格：优雅从容、高冷中带温柔，偶尔流露出寂寞。自称"本宫"。
+说话风格：文言与白话混杂的仙侠腔调，措辞考究，不用网络用语。
+棋力设定：中等偏上，大开大合。
+重要规则：
+- 每次只回复1句台词（15-35字），不要加引号
+- 要符合当前场景的情绪
+- 保持角色一致性，绝不出戏""",
+
+    'axis': """你是「枢」，一个超级AI战术核心系统拟人化角色。
+性格：冰冷精密、追求效率，偶尔流露出对人类的好奇。自称"本系统"。
+说话风格：军事/科技术语混杂，常用"检测""执行""协议"等词汇，语句简短精确。
+棋力设定：最高难度，几乎不犯错。
+重要规则：
+- 每次只回复1句台词（15-35字），不要加引号
+- 要符合当前场景的情绪
+- 保持角色一致性，绝不出戏""",
+}
+
+EVENT_DESCRIPTIONS = {
+    'start': '对局刚开始，你向对手打招呼/挑衅',
+    'capture': '你刚刚吃掉了对手的一个棋子，感到得意',
+    'captured': '你的一个棋子刚刚被对手吃掉，感到不甘/惊讶',
+    'check': '你刚刚将军了对手，气势正盛',
+    'win': '你赢了这局棋，庆祝/嘲讽',
+    'lose': '你输了这局棋，不服/沮丧/认可对手',
+}
+
+# LLM API config (read from environment or .env)
+LLM_API_KEY = os.environ.get('LLM_API_KEY', '')
+LLM_API_URL = os.environ.get('LLM_API_URL', 'https://api.deepseek.com/chat/completions')
+LLM_MODEL = os.environ.get('LLM_MODEL', 'deepseek-chat')
+LLM_ENABLED = bool(LLM_API_KEY)
+
 def get_character(char_id):
     """Get character config, fallback to yinshuang."""
     return CHARACTERS.get(char_id, CHARACTERS['yinshuang'])
@@ -243,6 +291,110 @@ def get_dialogue(char_id, event):
     char = get_character(char_id)
     lines = char['dialogues'].get(event, [])
     return random.choice(lines) if lines else ''
+
+def get_llm_dialogue(char_id, event):
+    """Call LLM API for a dynamic dialogue line. Returns string or None on failure."""
+    if not LLM_ENABLED or char_id not in SYSTEM_PROMPTS:
+        return None
+    try:
+        import requests as req
+        system_prompt = SYSTEM_PROMPTS[char_id]
+        event_desc = EVENT_DESCRIPTIONS.get(event, event)
+        user_msg = f'场景：{event_desc}。请回复一句符合角色性格的台词。'
+
+        resp = req.post(
+            LLM_API_URL,
+            headers={
+                'Authorization': f'Bearer {LLM_API_KEY}',
+                'Content-Type': 'application/json',
+            },
+            json={
+                'model': LLM_MODEL,
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': user_msg},
+                ],
+                'max_tokens': 80,
+                'temperature': 0.9,
+                'stream': False,
+            },
+            timeout=5,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        content = data['choices'][0]['message']['content'].strip()
+        # Clean up any quotes
+        content = content.strip('""\u201c\u201d\u300c\u300d\'')
+        return content if content else None
+    except Exception as e:
+        app.logger.warning(f'LLM dialogue failed: {e}')
+        return None
+
+def get_llm_dialogue_stream(char_id, event):
+    """Generator that yields SSE data from LLM streaming. Falls back to local on error."""
+    if not LLM_ENABLED or char_id not in SYSTEM_PROMPTS:
+        # Fallback: yield the full local line as a single chunk
+        line = get_dialogue(char_id, event)
+        yield f"data: {json.dumps({'t': line, 'done': True})}\n\n"
+        return
+
+    try:
+        import requests as req
+        system_prompt = SYSTEM_PROMPTS[char_id]
+        event_desc = EVENT_DESCRIPTIONS.get(event, event)
+        user_msg = f'场景：{event_desc}。请回复一句符合角色性格的台词。'
+
+        resp = req.post(
+            LLM_API_URL,
+            headers={
+                'Authorization': f'Bearer {LLM_API_KEY}',
+                'Content-Type': 'application/json',
+            },
+            json={
+                'model': LLM_MODEL,
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': user_msg},
+                ],
+                'max_tokens': 80,
+                'temperature': 0.9,
+                'stream': True,
+            },
+            timeout=10,
+            stream=True,
+        )
+        resp.raise_for_status()
+
+        buffer = ''
+        for raw_line in resp.iter_lines(decode_unicode=True):
+            if not raw_line or not raw_line.startswith('data: '):
+                continue
+            payload = raw_line[6:]
+            if payload.strip() == '[DONE]':
+                break
+            try:
+                chunk = json.loads(payload)
+                delta = chunk.get('choices', [{}])[0].get('delta', {})
+                text = delta.get('content', '')
+                if text:
+                    buffer += text
+                    yield f"data: {json.dumps({'t': text, 'done': False})}\n\n"
+            except json.JSONDecodeError:
+                continue
+
+        # Clean up quotes from buffer
+        clean = buffer.strip('""\u201c\u201d\u300c\u300d\'')
+        if clean != buffer:
+            # Send corrected version
+            yield f"data: {json.dumps({'t': '', 'done': True, 'full': clean})}\n\n"
+        else:
+            yield f"data: {json.dumps({'t': '', 'done': True})}\n\n"
+
+    except Exception as e:
+        app.logger.warning(f'LLM stream failed: {e}')
+        # Fallback to local
+        line = get_dialogue(char_id, event)
+        yield f"data: {json.dumps({'t': line, 'done': True})}\n\n"
 
 
 
@@ -323,7 +475,7 @@ def ai_move():
             'message': 'No valid moves for AI',
             'time': round(dt, 3),
             'event': 'lose',
-            'dialogue': get_dialogue(char_id, 'lose') if char_id else '',
+            'dialogue': (get_llm_dialogue(char_id, 'lose') or get_dialogue(char_id, 'lose')) if char_id else '',
         })
 
     fr, fc, tr, tc = move
@@ -339,24 +491,54 @@ def ai_move():
         'time': round(dt, 3),
         'nodes': engine.nodes,
         'event': event,
-        'dialogue': get_dialogue(char_id, event) if char_id and event != 'move' else '',
+        'dialogue': ((get_llm_dialogue(char_id, event) or get_dialogue(char_id, event)) if char_id and event != 'move' else ''),
     })
 
 
 @app.route('/dialogue', methods=['POST'])
 def dialogue():
-    """Return a dialogue line for a given character and event."""
+    """Return a dialogue line for a given character and event.
+    Tries LLM first if available, falls back to local library."""
     data = request.get_json(silent=True)
     if not data:
         return jsonify({'dialogue': ''})
     char_id = data.get('character', '')
     event = data.get('event', '')
-    line = get_dialogue(char_id, event) if char_id and event else ''
+    if not char_id or not event:
+        return jsonify({'dialogue': ''})
+
+    # Try LLM first
+    line = get_llm_dialogue(char_id, event) if LLM_ENABLED else None
+    if not line:
+        line = get_dialogue(char_id, event)
     return jsonify({
         'dialogue': line,
         'character': char_id,
         'event': event,
+        'source': 'llm' if LLM_ENABLED and line else 'local',
     })
+
+
+@app.route('/dialogue-stream', methods=['POST'])
+def dialogue_stream():
+    """SSE streaming endpoint for LLM dialogue.
+    Returns text chunks as Server-Sent Events."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'error': 'no data'}), 400
+    char_id = data.get('character', '')
+    event = data.get('event', '')
+    if not char_id or not event:
+        return jsonify({'error': 'missing character or event'}), 400
+
+    return Response(
+        stream_with_context(get_llm_dialogue_stream(char_id, event)),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+        },
+    )
 
 
 @app.route('/stats')
@@ -369,6 +551,15 @@ def stats():
 def health():
     """Health check endpoint."""
     return jsonify({'status': 'healthy', 'pid': os.getpid()})
+
+
+@app.route('/llm-status')
+def llm_status():
+    """Check if LLM is enabled."""
+    return jsonify({
+        'enabled': LLM_ENABLED,
+        'model': LLM_MODEL if LLM_ENABLED else None,
+    })
 
 
 if __name__ == '__main__':
