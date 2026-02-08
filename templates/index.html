@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中国象棋</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px 0;
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif;
+}
+
+#app {
+    text-align: center;
+}
+
+h1 {
+    color: #e6d5a8;
+    font-size: 30px;
+    margin-bottom: 16px;
+    letter-spacing: 6px;
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+}
+
+.board-container {
+    position: relative;
+    display: inline-block;
+    width: 576px;
+    height: 640px;
+    border: 6px solid #5D3A1A;
+    border-radius: 6px;
+    box-shadow: 0 10px 50px rgba(0,0,0,0.6), inset 0 0 30px rgba(93,58,26,0.15);
+    background: #DEB887;
+    outline: 3px solid #3E2310;
+    outline-offset: 2px;
+}
+
+#board-svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+}
+
+#pieces-grid {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: grid;
+    grid-template-columns: repeat(9, 64px);
+    grid-template-rows: repeat(10, 64px);
+}
+
+.cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
+}
+
+.cell.last-from {
+    background: rgba(255, 200, 0, 0.22);
+}
+
+.cell.last-to {
+    background: rgba(255, 200, 0, 0.32);
+}
+
+/* Valid move dot indicator */
+.cell.valid-move::before {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(0, 160, 0, 0.5);
+    box-shadow: 0 0 6px rgba(0, 160, 0, 0.4);
+    z-index: 2;
+}
+
+/* Valid capture ring on enemy piece */
+.cell.valid-capture .piece {
+    box-shadow: 0 0 0 3px rgba(220, 0, 0, 0.65),
+                2px 3px 6px rgba(0,0,0,0.3),
+                inset 0 1px 3px rgba(255,255,255,0.3);
+}
+
+/* ==== Piece Styling ==== */
+.piece {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: bold;
+    font-family: 'KaiTi', 'STKaiti', 'FangSong', 'STFangsong', 'SimSun', serif;
+    user-select: none;
+    cursor: pointer;
+    background: radial-gradient(circle at 38% 30%, #FFF8E7, #DEB887 55%, #B8860B 100%);
+    border: 2.5px solid #8B6914;
+    box-shadow: 2px 3px 6px rgba(0,0,0,0.35),
+                inset 0 1px 3px rgba(255,255,255,0.35);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    z-index: 3;
+    line-height: 1;
+}
+
+.piece:hover {
+    transform: scale(1.1);
+    box-shadow: 3px 4px 10px rgba(0,0,0,0.45),
+                inset 0 1px 3px rgba(255,255,255,0.35);
+}
+
+.piece.red {
+    color: #C41E3A;
+    text-shadow: 0 1px 1px rgba(196,30,58,0.2);
+}
+
+.piece.black {
+    color: #1A1A1A;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.15);
+}
+
+.piece.selected {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 3px #FFD700,
+                0 0 18px rgba(255, 215, 0, 0.6),
+                2px 3px 6px rgba(0,0,0,0.3);
+}
+
+/* ==== Overlay ==== */
+.overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 20;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.overlay.show {
+    display: flex;
+}
+
+.overlay span {
+    color: #FFD700;
+    font-size: 26px;
+    font-weight: bold;
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.6);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+}
+
+/* ==== Controls ==== */
+.controls {
+    margin-top: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+}
+
+#status {
+    color: #e6d5a8;
+    font-size: 18px;
+    min-width: 180px;
+    text-align: right;
+}
+
+.btn {
+    padding: 10px 26px;
+    font-size: 15px;
+    background: linear-gradient(180deg, #A0522D, #8B4513);
+    color: #FFF8E7;
+    border: 2px solid #D2691E;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 2px;
+    transition: background 0.2s;
+}
+
+.btn:hover {
+    background: linear-gradient(180deg, #B5623A, #A0522D);
+}
+
+.info-bar {
+    margin-top: 10px;
+    color: #8899aa;
+    font-size: 13px;
+}
+
+/* ==== Responsive ==== */
+@media (max-width: 630px) {
+    .board-container {
+        transform: scale(calc((100vw - 40px) / 576));
+        transform-origin: top center;
+    }
+    h1 { font-size: 24px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+    <h1>中 国 象 棋</h1>
+    <div class="board-container">
+        <svg id="board-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 640"></svg>
+        <div id="pieces-grid"></div>
+        <div id="overlay" class="overlay">
+            <span>AI 思考中...</span>
+        </div>
+    </div>
+    <div class="controls">
+        <span id="status">红方回合</span>
+        <button class="btn" id="btn-new">新 局</button>
+        <button class="btn" id="btn-undo">悔 棋</button>
+    </div>
+    <div class="info-bar" id="info-bar"></div>
+</div>
+
+<script>
+/* ================================================================
+   Constants
+   ================================================================ */
+const CS = 64;
+const HALF = CS / 2;
+
+const PIECE_CHAR = {
+    'r_shuai': '帥', 'r_shi': '仕', 'r_xiang': '相',
+    'r_ma': '馬', 'r_che': '車', 'r_pao': '炮', 'r_bing': '兵',
+    'b_jiang': '將', 'b_shi': '士', 'b_xiang': '象',
+    'b_ma': '馬', 'b_che': '車', 'b_pao': '砲', 'b_zu': '卒',
+};
+
+const INITIAL_BOARD = [
+    ['b_che','b_ma','b_xiang','b_shi','b_jiang','b_shi','b_xiang','b_ma','b_che'],
+    [null,null,null,null,null,null,null,null,null],
+    [null,'b_pao',null,null,null,null,null,'b_pao',null],
+    ['b_zu',null,'b_zu',null,'b_zu',null,'b_zu',null,'b_zu'],
+    [null,null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null,null],
+    ['r_bing',null,'r_bing',null,'r_bing',null,'r_bing',null,'r_bing'],
+    [null,'r_pao',null,null,null,null,null,'r_pao',null],
+    [null,null,null,null,null,null,null,null,null],
+    ['r_che','r_ma','r_xiang','r_shi','r_shuai','r_shi','r_xiang','r_ma','r_che'],
+];
+
+/* ================================================================
+   Game State
+   ================================================================ */
+let board = [];
+let selectedPos = null;
+let validMoves = [];
+let currentTurn = 'r';
+let gameOver = false;
+let lastMove = null;
+let history = [];
+
+/* ================================================================
+   Board Drawing (SVG)
+   ================================================================ */
+function drawBoard() {
+    const svg = document.getElementById('board-svg');
+    svg.innerHTML = '';
+    const ns = 'http://www.w3.org/2000/svg';
+
+    function addLine(x1, y1, x2, y2, w) {
+        const el = document.createElementNS(ns, 'line');
+        el.setAttribute('x1', x1); el.setAttribute('y1', y1);
+        el.setAttribute('x2', x2); el.setAttribute('y2', y2);
+        el.setAttribute('stroke', '#5D3A1A');
+        el.setAttribute('stroke-width', w || 1.5);
+        svg.appendChild(el);
+    }
+
+    function addText(x, y, text, size) {
+        const el = document.createElementNS(ns, 'text');
+        el.setAttribute('x', x); el.setAttribute('y', y);
+        el.setAttribute('text-anchor', 'middle');
+        el.setAttribute('dominant-baseline', 'central');
+        el.setAttribute('font-size', size || 26);
+        el.setAttribute('fill', '#7B5B3A');
+        el.setAttribute('font-family', 'KaiTi, STKaiti, FangSong, serif');
+        el.setAttribute('opacity', '0.75');
+        el.textContent = text;
+        svg.appendChild(el);
+    }
+
+    /* Outer border */
+    const bx = HALF - 4, by = HALF - 4;
+    const bw = 8 * CS + 8, bh = 9 * CS + 8;
+    const rect = document.createElementNS(ns, 'rect');
+    rect.setAttribute('x', bx); rect.setAttribute('y', by);
+    rect.setAttribute('width', bw); rect.setAttribute('height', bh);
+    rect.setAttribute('fill', 'none');
+    rect.setAttribute('stroke', '#5D3A1A');
+    rect.setAttribute('stroke-width', 2.5);
+    svg.appendChild(rect);
+
+    /* Horizontal lines (10 rows) */
+    for (let r = 0; r < 10; r++) {
+        const y = r * CS + HALF;
+        addLine(HALF, y, 8 * CS + HALF, y);
+    }
+
+    /* Vertical lines — top half (rows 0-4) */
+    for (let c = 0; c < 9; c++) {
+        addLine(c * CS + HALF, HALF, c * CS + HALF, 4 * CS + HALF);
+    }
+
+    /* Vertical lines — bottom half (rows 5-9) */
+    for (let c = 0; c < 9; c++) {
+        addLine(c * CS + HALF, 5 * CS + HALF, c * CS + HALF, 9 * CS + HALF);
+    }
+
+    /* Edge verticals across river */
+    addLine(HALF, 4 * CS + HALF, HALF, 5 * CS + HALF);
+    addLine(8 * CS + HALF, 4 * CS + HALF, 8 * CS + HALF, 5 * CS + HALF);
+
+    /* Palace diagonals */
+    addLine(3*CS+HALF, 0*CS+HALF, 5*CS+HALF, 2*CS+HALF);
+    addLine(5*CS+HALF, 0*CS+HALF, 3*CS+HALF, 2*CS+HALF);
+    addLine(3*CS+HALF, 7*CS+HALF, 5*CS+HALF, 9*CS+HALF);
+    addLine(5*CS+HALF, 7*CS+HALF, 3*CS+HALF, 9*CS+HALF);
+
+    /* Star marks at cannon and pawn positions */
+    const stars = [
+        [2,1],[2,7],[7,1],[7,7],
+        [3,0],[3,2],[3,4],[3,6],[3,8],
+        [6,0],[6,2],[6,4],[6,6],[6,8],
+    ];
+    const sd = 5, sl = 11;
+    for (const [row, col] of stars) {
+        const cx = col * CS + HALF, cy = row * CS + HALF;
+        if (col < 8) {
+            addLine(cx+sd, cy-sd, cx+sl, cy-sd, 1);
+            addLine(cx+sd, cy-sd, cx+sd, cy-sl, 1);
+            addLine(cx+sd, cy+sd, cx+sl, cy+sd, 1);
+            addLine(cx+sd, cy+sd, cx+sd, cy+sl, 1);
+        }
+        if (col > 0) {
+            addLine(cx-sd, cy-sd, cx-sl, cy-sd, 1);
+            addLine(cx-sd, cy-sd, cx-sd, cy-sl, 1);
+            addLine(cx-sd, cy+sd, cx-sl, cy+sd, 1);
+            addLine(cx-sd, cy+sd, cx-sd, cy+sl, 1);
+        }
+    }
+
+    /* River text */
+    addText(2 * CS + HALF, 4.5 * CS + HALF, '楚  河', 30);
+    addText(6 * CS + HALF, 4.5 * CS + HALF, '漢  界', 30);
+}
+
+/* ================================================================
+   Rendering
+   ================================================================ */
+function renderPieces() {
+    const grid = document.getElementById('pieces-grid');
+    grid.innerHTML = '';
+
+    for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 9; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            cell.addEventListener('click', () => handleClick(r, c));
+
+            /* Highlight last move */
+            if (lastMove) {
+                if (r === lastMove.fr && c === lastMove.fc) cell.classList.add('last-from');
+                if (r === lastMove.tr && c === lastMove.tc) cell.classList.add('last-to');
+            }
+
+            const piece = board[r][c];
+            const isValidTarget = validMoves.some(m => m[0] === r && m[1] === c);
+
+            if (piece) {
+                const div = document.createElement('div');
+                div.className = 'piece ' + (piece[0] === 'r' ? 'red' : 'black');
+                div.textContent = PIECE_CHAR[piece] || '?';
+
+                if (selectedPos && selectedPos[0] === r && selectedPos[1] === c) {
+                    div.classList.add('selected');
+                }
+                if (isValidTarget) {
+                    cell.classList.add('valid-capture');
+                }
+                cell.appendChild(div);
+            } else {
+                if (isValidTarget) {
+                    cell.classList.add('valid-move');
+                }
+            }
+
+            grid.appendChild(cell);
+        }
+    }
+}
+
+/* ================================================================
+   Move Generation (Client-Side — mirrors engine.py logic)
+   ================================================================ */
+const MA_DELTAS = [
+    [-1, 0, -2, -1], [-1, 0, -2, 1],
+    [1, 0, 2, -1], [1, 0, 2, 1],
+    [0, -1, -1, -2], [0, -1, 1, -2],
+    [0, 1, -1, 2], [0, 1, 1, 2],
+];
+const ORTHO_DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
+const DIAG_DIRS = [[-1,-1],[-1,1],[1,-1],[1,1]];
+
+function inBoard(r, c) { return r >= 0 && r < 10 && c >= 0 && c < 9; }
+
+function getRawMoves(b, r, c) {
+    const p = b[r][c];
+    if (!p) return [];
+    const color = p[0], type = p.substring(2);
+    const moves = [];
+    switch (type) {
+        case 'che':   _genChe(b, r, c, color, moves); break;
+        case 'pao':   _genPao(b, r, c, color, moves); break;
+        case 'ma':    _genMa(b, r, c, color, moves); break;
+        case 'xiang': _genXiang(b, r, c, color, moves); break;
+        case 'shi':   _genShi(b, r, c, color, moves); break;
+        case 'jiang': case 'shuai': _genKing(b, r, c, color, moves); break;
+        case 'zu': case 'bing':     _genBing(b, r, c, color, moves); break;
+    }
+    return moves;
+}
+
+function _genChe(b, r, c, color, moves) {
+    for (const [dr, dc] of ORTHO_DIRS) {
+        let nr = r+dr, nc = c+dc;
+        while (inBoard(nr, nc)) {
+            const t = b[nr][nc];
+            if (!t) { moves.push([nr, nc]); }
+            else { if (t[0] !== color) moves.push([nr, nc]); break; }
+            nr += dr; nc += dc;
+        }
+    }
+}
+
+function _genPao(b, r, c, color, moves) {
+    for (const [dr, dc] of ORTHO_DIRS) {
+        let nr = r+dr, nc = c+dc;
+        while (inBoard(nr, nc)) {
+            if (!b[nr][nc]) { moves.push([nr, nc]); }
+            else {
+                nr += dr; nc += dc;
+                while (inBoard(nr, nc)) {
+                    const t = b[nr][nc];
+                    if (t) { if (t[0] !== color) moves.push([nr, nc]); break; }
+                    nr += dr; nc += dc;
+                }
+                break;
+            }
+            nr += dr; nc += dc;
+        }
+    }
+}
+
+function _genMa(b, r, c, color, moves) {
+    for (const [ldr, ldc, ddr, ddc] of MA_DELTAS) {
+        const lr = r+ldr, lc = c+ldc;
+        if (!inBoard(lr, lc) || b[lr][lc]) continue;
+        const nr = r+ddr, nc = c+ddc;
+        if (inBoard(nr, nc)) {
+            const t = b[nr][nc];
+            if (!t || t[0] !== color) moves.push([nr, nc]);
+        }
+    }
+}
+
+function _genXiang(b, r, c, color, moves) {
+    for (const [dr, dc] of DIAG_DIRS) {
+        const nr = r+2*dr, nc = c+2*dc;
+        if (!inBoard(nr, nc)) continue;
+        if (color === 'b' && nr > 4) continue;
+        if (color === 'r' && nr < 5) continue;
+        if (b[r+dr][c+dc]) continue;
+        const t = b[nr][nc];
+        if (!t || t[0] !== color) moves.push([nr, nc]);
+    }
+}
+
+function _genShi(b, r, c, color, moves) {
+    for (const [dr, dc] of DIAG_DIRS) {
+        const nr = r+dr, nc = c+dc;
+        if (nc < 3 || nc > 5) continue;
+        if (color === 'b' && (nr < 0 || nr > 2)) continue;
+        if (color === 'r' && (nr < 7 || nr > 9)) continue;
+        const t = b[nr][nc];
+        if (!t || t[0] !== color) moves.push([nr, nc]);
+    }
+}
+
+function _genKing(b, r, c, color, moves) {
+    for (const [dr, dc] of ORTHO_DIRS) {
+        const nr = r+dr, nc = c+dc;
+        if (nc < 3 || nc > 5) continue;
+        if (color === 'b' && (nr < 0 || nr > 2)) continue;
+        if (color === 'r' && (nr < 7 || nr > 9)) continue;
+        const t = b[nr][nc];
+        if (!t || t[0] !== color) moves.push([nr, nc]);
+    }
+    /* Flying general */
+    const targetKing = color === 'b' ? 'r_shuai' : 'b_jiang';
+    const step = color === 'b' ? 1 : -1;
+    let nr = r + step;
+    while (nr >= 0 && nr < 10) {
+        const t = b[nr][c];
+        if (t) { if (t === targetKing) moves.push([nr, c]); break; }
+        nr += step;
+    }
+}
+
+function _genBing(b, r, c, color, moves) {
+    if (color === 'b') {
+        if (r+1 < 10 && (!b[r+1][c] || b[r+1][c][0] !== color)) moves.push([r+1, c]);
+        if (r >= 5) {
+            if (c-1 >= 0 && (!b[r][c-1] || b[r][c-1][0] !== color)) moves.push([r, c-1]);
+            if (c+1 <  9 && (!b[r][c+1] || b[r][c+1][0] !== color)) moves.push([r, c+1]);
+        }
+    } else {
+        if (r-1 >= 0 && (!b[r-1][c] || b[r-1][c][0] !== color)) moves.push([r-1, c]);
+        if (r <= 4) {
+            if (c-1 >= 0 && (!b[r][c-1] || b[r][c-1][0] !== color)) moves.push([r, c-1]);
+            if (c+1 <  9 && (!b[r][c+1] || b[r][c+1][0] !== color)) moves.push([r, c+1]);
+        }
+    }
+}
+
+/* ================================================================
+   Legal Move Filtering (no self-check)
+   ================================================================ */
+function isInCheck(b, color) {
+    /* Find our king */
+    const kingName = color === 'r' ? 'r_shuai' : 'b_jiang';
+    let kr = -1, kc = -1;
+    for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (b[r][c] === kingName) { kr = r; kc = c; }
+        }
+    }
+    if (kr < 0) return true; /* King gone = in check */
+
+    const enemy = color === 'r' ? 'b' : 'r';
+    for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (b[r][c] && b[r][c][0] === enemy) {
+                const targets = getRawMoves(b, r, c);
+                for (const [tr, tc] of targets) {
+                    if (tr === kr && tc === kc) return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+function getLegalMoves(b, r, c) {
+    const raw = getRawMoves(b, r, c);
+    const color = b[r][c][0];
+    const legal = [];
+
+    for (const [tr, tc] of raw) {
+        /* Make */
+        const saved = b[tr][tc];
+        const piece = b[r][c];
+        b[tr][tc] = piece;
+        b[r][c] = null;
+
+        if (!isInCheck(b, color)) {
+            legal.push([tr, tc]);
+        }
+
+        /* Unmake */
+        b[r][c] = piece;
+        b[tr][tc] = saved;
+    }
+    return legal;
+}
+
+function hasAnyLegalMove(b, color) {
+    for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (b[r][c] && b[r][c][0] === color) {
+                if (getLegalMoves(b, r, c).length > 0) return true;
+            }
+        }
+    }
+    return false;
+}
+
+/* ================================================================
+   Click Handler
+   ================================================================ */
+function handleClick(r, c) {
+    if (gameOver || currentTurn !== 'r') return;
+
+    const piece = board[r][c];
+
+    if (selectedPos) {
+        /* Click on valid target → move */
+        if (validMoves.some(m => m[0] === r && m[1] === c)) {
+            const [fr, fc] = selectedPos;
+            saveHistory();
+            doMove(fr, fc, r, c);
+            selectedPos = null;
+            validMoves = [];
+            renderPieces();
+
+            if (!gameOver) {
+                currentTurn = 'b';
+                setStatus('AI 思考中...');
+                showOverlay(true);
+                setTimeout(requestAIMove, 50);
+            }
+            return;
+        }
+
+        /* Click another own piece → re-select */
+        if (piece && piece[0] === 'r') {
+            selectedPos = [r, c];
+            validMoves = getLegalMoves(board, r, c);
+            renderPieces();
+            return;
+        }
+
+        /* Click elsewhere → deselect */
+        selectedPos = null;
+        validMoves = [];
+        renderPieces();
+        return;
+    }
+
+    /* Nothing selected yet → select own piece */
+    if (piece && piece[0] === 'r') {
+        selectedPos = [r, c];
+        validMoves = getLegalMoves(board, r, c);
+        renderPieces();
+    }
+}
+
+/* ================================================================
+   Move Execution
+   ================================================================ */
+function doMove(fr, fc, tr, tc) {
+    const captured = board[tr][tc];
+    board[tr][tc] = board[fr][fc];
+    board[fr][fc] = null;
+    lastMove = { fr, fc, tr, tc };
+
+    if (captured) {
+        if (captured === 'b_jiang') {
+            gameOver = true;
+            setStatus('红方胜利！');
+            showOverlay(false);
+        } else if (captured === 'r_shuai') {
+            gameOver = true;
+            setStatus('黑方胜利！');
+            showOverlay(false);
+        }
+    }
+}
+
+function saveHistory() {
+    history.push({
+        board: board.map(row => [...row]),
+        lastMove: lastMove ? { ...lastMove } : null,
+        turn: currentTurn,
+    });
+}
+
+/* ================================================================
+   AI Communication
+   ================================================================ */
+async function requestAIMove() {
+    try {
+        const res = await fetch('/ai-move', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ board }),
+        });
+
+        const data = await res.json();
+        showOverlay(false);
+
+        if (data.status === 'ok' && data.move) {
+            const { from, to } = data.move;
+            saveHistory();
+            doMove(from[0], from[1], to[0], to[1]);
+            renderPieces();
+
+            const info = `AI: ${data.nodes || '?'} 节点, ${data.time || '?'}s`;
+            document.getElementById('info-bar').textContent = info;
+
+            if (!gameOver) {
+                currentTurn = 'r';
+                if (!hasAnyLegalMove(board, 'r')) {
+                    gameOver = true;
+                    setStatus('黑方胜利！（绝杀）');
+                } else if (isInCheck(board, 'r')) {
+                    setStatus('将军！ 红方回合');
+                } else {
+                    setStatus('红方回合');
+                }
+            }
+        } else {
+            gameOver = true;
+            setStatus('红方胜利！（AI无子可走）');
+        }
+    } catch (err) {
+        showOverlay(false);
+        currentTurn = 'r';
+        setStatus('网络错误，请重试');
+        console.error('AI request failed:', err);
+    }
+}
+
+/* ================================================================
+   UI Helpers
+   ================================================================ */
+function setStatus(text) {
+    document.getElementById('status').textContent = text;
+}
+
+function showOverlay(show) {
+    const el = document.getElementById('overlay');
+    if (show) el.classList.add('show');
+    else el.classList.remove('show');
+}
+
+function undoMove() {
+    if (history.length < 2 || gameOver) return; /* need to undo player + AI */
+    /* Pop AI move */
+    const prev = history.pop();
+    /* Pop player move */
+    const prev2 = history.pop();
+
+    board = prev2.board;
+    lastMove = prev2.lastMove;
+    currentTurn = 'r';
+    selectedPos = null;
+    validMoves = [];
+    setStatus('红方回合');
+    document.getElementById('info-bar').textContent = '';
+    renderPieces();
+}
+
+function newGame() {
+    board = INITIAL_BOARD.map(row => [...row]);
+    selectedPos = null;
+    validMoves = [];
+    currentTurn = 'r';
+    gameOver = false;
+    lastMove = null;
+    history = [];
+    setStatus('红方回合');
+    showOverlay(false);
+    document.getElementById('info-bar').textContent = '';
+    renderPieces();
+}
+
+/* ================================================================
+   Init
+   ================================================================ */
+function init() {
+    drawBoard();
+    newGame();
+    document.getElementById('btn-new').addEventListener('click', newGame);
+    document.getElementById('btn-undo').addEventListener('click', undoMove);
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
