@@ -127,20 +127,33 @@
 
 ### 开发任务拆解
 
-- [ ] Phase 1：台词库 + 后端返回 dialogue
-  - [ ] 定义 3 角色 x 6 场景台词数据（Python dict）
-  - [ ] 修改 /ai-move 返回 dialogue + event 字段
-  - [ ] 前端解析并显示对话气泡（info-bar 区域先用）
-- [ ] Phase 2：角色选择 UI
-  - [ ] 角色选择面板（替代难度下拉框）
-  - [ ] 角色信息卡片（名称/描述/棋力）
-  - [ ] 选择角色 = 设置难度 + 切换台词库
-- [ ] Phase 3：Galgame 布局改造
-  - [ ] 左右分栏布局（立绘 + 棋盘）
-  - [ ] 立绘区域（占位图 -> 正式图）
-  - [ ] 对话气泡组件（带角色名 + 打字机效果）
-  - [ ] 表情差分切换（普通/开心/生气）
-- [ ] Phase 4（可选）：LLM 接入
-  - [ ] 角色 System Prompt 定义
-  - [ ] 后端接入 LLM API
-  - [ ] 流式输出到前端气泡
+- [x] Phase 1：台词库 + 后端返回 dialogue
+- [x] Phase 2：角色选择 UI + Galgame 布局
+- [x] Phase 3：Galgame 布局改造 + 表情差分
+- [x] Phase 4：LLM 接入（DeepSeek API + 流式输出）
+- [x] Phase 5：角色体系替换为碧蓝航线6角色 + Live2D 集成
+
+### Phase 5 详情（2026-02-08）
+
+**6角色阵容替换：**
+
+| 代号 | 角色名 | 棋力(depth) | 性格关键词 |
+|------|--------|------------|-----------|
+| unicorn | 独角兽 | 1 | 害羞、胆小、努力 |
+| laffey | 拉菲 | 2 | 慵懒、迷糊、偶尔灵光 |
+| shokaku | 翔鹤 | 3 | 温婉、优雅、鹤舞 |
+| ibuki | 伊吹 | 4 | 沉默、果断、剑客 |
+| sirius | 天狼星 | 4 | 优雅女仆、忠诚 |
+| taihou | 大凤 | 5 | 病娇、热情、极强 |
+
+**Live2D 集成（可切换开/关）：**
+- 使用 Live2D Cubism 3 SDK (CDN)
+- 模型源：imuncle/live2d GitHub Pages
+- 前端 checkbox 切换 SVG/Live2D 模式
+- 状态通过 localStorage 保持
+
+**LLM 模型切换：**
+- 环境变量 LLM_API_KEY 控制是否启用
+- 前端查询 /llm-status 动态判断
+- 启用时：流式 SSE 输出 LLM 台词
+- 禁用时：回退到本地台词库

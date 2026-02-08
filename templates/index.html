@@ -180,7 +180,8 @@ body {
     padding: 28px 28px 22px;
     z-index: 100;
     box-shadow: 0 30px 80px rgba(0,0,0,0.6);
-    min-width: 640px;
+    min-width: 580px;
+    max-width: 680px;
     opacity: 0;
     transition: transform 0.3s ease, opacity 0.3s ease;
 }
@@ -213,9 +214,12 @@ body {
 .char-select-close:hover { color: #fff; }
 
 .char-cards {
-    display: flex;
-    gap: 18px;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-right: 4px;
 }
 
 .char-card {
@@ -838,8 +842,7 @@ h1 {
         margin-top: 0;
     }
     .char-select-panel { min-width: auto; width: 94vw; padding: 20px 14px; }
-    .char-cards { flex-wrap: wrap; }
-    .char-card { width: 160px; }
+    .char-cards { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 630px) {
     .board-container {
@@ -854,7 +857,28 @@ h1 {
     .char-portrait-area { width: 120px; height: 180px; }
     .char-card-portrait { width: 90px; height: 112px; }
 }
+/* Live2D canvas in portrait area */
+.l2d-canvas-wrap {
+    display: none;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 2;
+    overflow: hidden;
+    border-radius: 12px;
+}
+.l2d-canvas-wrap canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+.char-portrait-area.live2d-active .l2d-canvas-wrap { display: block; }
+.char-portrait-area.live2d-active #char-portrait-svg { opacity: 0.15; }
 </style>
+<!-- Live2D Cubism 3 SDK (CDN from imuncle/live2d) -->
+<script src="https://imuncle.github.io/live2d/live2d_3/js/pixi.min.js"></script>
+<script src="https://imuncle.github.io/live2d/live2d_3/js/live2dcubismcore.min.js"></script>
+<script src="https://imuncle.github.io/live2d/live2d_3/js/live2dcubismframework.js"></script>
+<script src="https://imuncle.github.io/live2d/live2d_3/js/live2dcubismpixi.js"></script>
 </head>
 <body>
 <div id="app">
@@ -864,6 +888,7 @@ h1 {
         <div class="char-panel" id="char-panel">
             <div class="char-portrait-area" id="char-portrait-area">
                 <svg class="char-portrait-svg" id="char-portrait-svg" viewBox="0 0 240 360"></svg>
+                <div class="l2d-canvas-wrap" id="l2d-canvas-wrap"></div>
             </div>
             <div class="char-name-tag" id="char-name-tag"></div>
             <div class="char-stars-tag" id="char-stars-tag"></div>
@@ -913,6 +938,12 @@ h1 {
         <span class="char-select-close" id="char-select-close">&times;</span>
     </div>
     <div class="char-cards" id="char-cards"></div>
+    <div style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:14px;">
+        <button class="btn" id="btn-free-mode" style="padding:6px 18px;font-size:13px;">自由模式</button>
+        <label style="color:#9aa3b2;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="live2d-toggle" style="cursor:pointer;"> Live2D 模型
+        </label>
+    </div>
 </div>
 
 <!-- Puzzle Panel -->
@@ -1052,26 +1083,47 @@ const DIFFICULTY_LEVELS = [
     { id: 'master', name: '大师', depth: 5 },
 ];
 
-const CHARACTER_IDS = ['qingluan', 'yinshuang', 'axis'];
-const CHARACTER_NAMES = { qingluan: '青鸾', yinshuang: '银霜', axis: '枢' };
+const CHARACTER_IDS = ['unicorn', 'laffey', 'shokaku', 'ibuki', 'sirius', 'taihou'];
+const CHARACTER_NAMES = {
+    unicorn: '独角兽', laffey: '拉菲', shokaku: '翔鹤',
+    ibuki: '伊吹', sirius: '天狼星', taihou: '大凤',
+};
 const CHARACTER_INFO = {
-    qingluan: {
-        name: '青鸾',
-        stars: 1,
-        desc: '活泼元气的少女棋手，棋风灵动多变，喜欢用巧招戏弄对手。',
-        colors: { hair: '#FF6B9D', skin: '#FFE4D0', dress: '#FF85B3', eye: '#E91E63', accent: '#FF4081' },
+    unicorn: {
+        name: '独角兽', stars: 1,
+        desc: '害羞内向的小女孩，抱着独角兽玩偶，紧张又努力。',
+        colors: { hair: '#C8A2E8', skin: '#FFF0F5', dress: '#E8D0F0', eye: '#BA68C8', accent: '#CE93D8' },
+        model: 'unicorn',
     },
-    yinshuang: {
-        name: '银霜',
-        stars: 2,
-        desc: '千年修行的仙侠棋灵，举止优雅从容，棋路大开大合。',
-        colors: { hair: '#B8D4E3', skin: '#FFF3E8', dress: '#7BAFD4', eye: '#4FC3F7', accent: '#81D4FA' },
+    laffey: {
+        name: '拉菲', stars: 2,
+        desc: '永远睡眼惺忪的迷糊少女，偶尔灵光一闪。',
+        colors: { hair: '#F5F5DC', skin: '#FFF8E7', dress: '#FFFFFF', eye: '#E53935', accent: '#EF9A9A' },
+        model: 'laffey',
     },
-    axis: {
-        name: '枢',
-        stars: 3,
-        desc: '超级AI战术核心，冰冷精密，追求绝对效率的终极对手。',
-        colors: { hair: '#90CAF9', skin: '#E8EAF6', dress: '#3F51B5', eye: '#00E5FF', accent: '#448AFF' },
+    shokaku: {
+        name: '翔鹤', stars: 3,
+        desc: '温婉大方的大姐姐，棋风稳健从容，鹤舞般优雅。',
+        colors: { hair: '#ECEFF1', skin: '#FFF3E8', dress: '#F5F5F5', eye: '#FF7043', accent: '#FFAB91' },
+        model: 'shokaku',
+    },
+    ibuki: {
+        name: '伊吹', stars: 4,
+        desc: '沉默寡言的和风剑客，落子果断如拔刀。',
+        colors: { hair: '#B0BEC5', skin: '#FFF3E8', dress: '#78909C', eye: '#29B6F6', accent: '#81D4FA' },
+        model: 'ibuki',
+    },
+    sirius: {
+        name: '天狼星', stars: 4,
+        desc: '优雅忠诚的皇家女仆，礼貌中暗藏惊人棋力。',
+        colors: { hair: '#90CAF9', skin: '#FFF3E8', dress: '#1A237E', eye: '#42A5F5', accent: '#64B5F6' },
+        model: 'sirius',
+    },
+    taihou: {
+        name: '大凤', stars: 5,
+        desc: '对你有极强执念，棋风激进，绝不手软♡',
+        colors: { hair: '#1A1A1A', skin: '#FFF0E8', dress: '#B71C1C', eye: '#FFD600', accent: '#FF5252' },
+        model: 'taihou',
     },
 };
 
@@ -1173,16 +1225,16 @@ function renderCharCards() {
     CHARACTER_IDS.forEach(id => {
         const info = CHARACTER_INFO[id];
         const isActive = currentCharacterId === id;
+        const maxStars = 5;
         const card = document.createElement('div');
         card.className = 'char-card' + (isActive ? ' active' : '');
         card.innerHTML = `
             <div class="char-card-portrait"><svg viewBox="0 0 120 150"></svg></div>
             <div class="char-card-name">${info.name}</div>
-            <div class="char-card-stars">${'★'.repeat(info.stars)}${'☆'.repeat(3 - info.stars)}</div>
+            <div class="char-card-stars">${'★'.repeat(info.stars)}${'☆'.repeat(maxStars - info.stars)}</div>
             <div class="char-card-desc">${info.desc}</div>
             <button class="char-card-btn">${isActive ? '当前对手' : '选择'}</button>
         `;
-        // Draw mini portrait
         const svg = card.querySelector('svg');
         drawCharPortrait(svg, id, 'normal');
         card.querySelector('.char-card-btn').addEventListener('click', () => {
@@ -1190,24 +1242,6 @@ function renderCharCards() {
         });
         container.appendChild(card);
     });
-
-    // Also add a "free play" card to go back to difficulty mode
-    const freeCard = document.createElement('div');
-    const isFree = !currentCharacterId;
-    freeCard.className = 'char-card' + (isFree ? ' active' : '');
-    freeCard.innerHTML = `
-        <div class="char-card-portrait" style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);">
-            <span style="font-size:48px;opacity:0.3">♟</span>
-        </div>
-        <div class="char-card-name">自由模式</div>
-        <div class="char-card-stars">☆☆☆</div>
-        <div class="char-card-desc">使用难度选择自由对战AI，无角色对话。</div>
-        <button class="char-card-btn">${isFree ? '当前模式' : '选择'}</button>
-    `;
-    freeCard.querySelector('.char-card-btn').addEventListener('click', () => {
-        selectCharacter(null);
-    });
-    container.appendChild(freeCard);
 }
 
 function selectCharacter(charId) {
@@ -1232,12 +1266,242 @@ function updateCharPanel() {
         diffWrap.style.display = 'none';
         const info = CHARACTER_INFO[currentCharacterId];
         document.getElementById('char-name-tag').textContent = info.name;
-        document.getElementById('char-stars-tag').textContent = '★'.repeat(info.stars) + '☆'.repeat(3 - info.stars);
+        document.getElementById('char-stars-tag').textContent = '★'.repeat(info.stars) + '☆'.repeat(5 - info.stars);
         drawCharPortrait(document.getElementById('char-portrait-svg'), currentCharacterId, 'normal');
+        // Live2D
+        if (live2dEnabled) {
+            loadLive2DModel(currentCharacterId);
+        } else {
+            hideLive2D();
+        }
     } else {
         panel.classList.add('hidden');
         diffWrap.style.display = '';
+        hideLive2D();
     }
+}
+
+/* ==== Live2D Integration ==== */
+const L2D_MODEL_BASE = 'https://imuncle.github.io/live2d/live2d_3/model/';
+const L2D_MODEL_MAP = {
+    unicorn:  'Azue Lane(JP)/dujiaoshou_4',
+    laffey:   'Azue Lane(JP)/lafei',
+    shokaku:  'Azue Lane(JP)/xianghe_2',
+    ibuki:    'Azue Lane(JP)/yichui_2',
+    sirius:   'Azue Lane(JP)/tianlangxing_3',
+    taihou:   'Azue Lane(JP)/dafeng_2',
+};
+
+let live2dEnabled = false;
+let l2dApp = null;        // PIXI.Application
+let l2dInstance = null;    // L2D loader instance
+let l2dCurrentModel = null; // current model reference
+let l2dCurrentCharId = null;
+
+function initLive2D() {
+    // Restore toggle state
+    const saved = localStorage.getItem('chess_live2d');
+    live2dEnabled = saved === 'true';
+    const toggle = document.getElementById('live2d-toggle');
+    if (toggle) {
+        toggle.checked = live2dEnabled;
+        toggle.addEventListener('change', () => {
+            live2dEnabled = toggle.checked;
+            localStorage.setItem('chess_live2d', live2dEnabled);
+            updateCharPanel();
+        });
+    }
+}
+
+function createL2DApp() {
+    if (l2dApp) return;
+    const wrap = document.getElementById('l2d-canvas-wrap');
+    if (!wrap) return;
+    try {
+        l2dApp = new PIXI.Application(240, 360, { transparent: true });
+        l2dApp.view.style.width = '100%';
+        l2dApp.view.style.height = '100%';
+        wrap.appendChild(l2dApp.view);
+
+        l2dInstance = new L2DLoader(L2D_MODEL_BASE);
+
+        l2dApp.ticker.add((dt) => {
+            if (!l2dCurrentModel) return;
+            l2dCurrentModel.update(dt);
+            l2dCurrentModel.masks.update(l2dApp.renderer);
+        });
+    } catch (e) {
+        console.warn('Live2D init failed:', e);
+        l2dApp = null;
+    }
+}
+
+// Simplified L2D loader (adapted from l2d.js)
+class L2DLoader {
+    constructor(basePath) {
+        this.basePath = basePath;
+        this.animatorBuilder = new LIVE2DCUBISMFRAMEWORK.AnimatorBuilder();
+        this.timeScale = 1;
+        this.models = {};
+    }
+
+    setPhysics3Json(value) {
+        if (!this.physicsRigBuilder) {
+            this.physicsRigBuilder = new LIVE2DCUBISMFRAMEWORK.PhysicsRigBuilder();
+        }
+        this.physicsRigBuilder.setPhysics3Json(value);
+        return this;
+    }
+
+    load(name, callback) {
+        if (this.models[name]) {
+            callback(this.models[name]);
+            return;
+        }
+        const loader = new PIXI.loaders.Loader(this.basePath);
+        const modelDir = name + '/';
+        const shortName = name.split('/').pop();
+        const modelPath = shortName + '.model3.json';
+        let textures = [];
+        let textureCount = 0;
+        let motionNames = [];
+
+        loader.add(shortName + '_model', modelDir + modelPath, { xhrType: PIXI.loaders.Resource.XHR_RESPONSE_TYPE.JSON });
+        loader.load((ldr, resources) => {
+            const model3Obj = resources[shortName + '_model'].data;
+            if (model3Obj['FileReferences']['Moc']) {
+                ldr.add(shortName + '_moc', modelDir + model3Obj['FileReferences']['Moc'], { xhrType: PIXI.loaders.Resource.XHR_RESPONSE_TYPE.BUFFER });
+            }
+            if (model3Obj['FileReferences']['Textures']) {
+                model3Obj['FileReferences']['Textures'].forEach(el => {
+                    ldr.add(shortName + '_texture' + textureCount, modelDir + el);
+                    textureCount++;
+                });
+            }
+            if (model3Obj['FileReferences']['Physics']) {
+                ldr.add(shortName + '_physics', modelDir + model3Obj['FileReferences']['Physics'], { xhrType: PIXI.loaders.Resource.XHR_RESPONSE_TYPE.JSON });
+            }
+            if (model3Obj['FileReferences']['Motions']) {
+                for (let group in model3Obj['FileReferences']['Motions']) {
+                    model3Obj['FileReferences']['Motions'][group].forEach(el => {
+                        const motionName = el['File'].split('/').pop().split('.').shift();
+                        ldr.add(shortName + '_' + motionName, modelDir + el['File'], { xhrType: PIXI.loaders.Resource.XHR_RESPONSE_TYPE.JSON });
+                        motionNames.push(shortName + '_' + motionName);
+                    });
+                }
+            }
+            let groups = null;
+            if (model3Obj['Groups']) {
+                groups = LIVE2DCUBISMFRAMEWORK.Groups.fromModel3Json(model3Obj);
+            }
+            ldr.load((l2, r) => {
+                let moc = null;
+                if (r[shortName + '_moc']) {
+                    moc = Live2DCubismCore.Moc.fromArrayBuffer(r[shortName + '_moc'].data);
+                }
+                for (let i = 0; i < textureCount; i++) {
+                    if (r[shortName + '_texture' + i]) {
+                        textures.push(r[shortName + '_texture' + i].texture);
+                    }
+                }
+                if (r[shortName + '_physics']) {
+                    this.setPhysics3Json(r[shortName + '_physics'].data);
+                }
+                let motions = new Map();
+                motionNames.forEach(el => {
+                    const n = el.split(shortName + '_').pop();
+                    motions.set(n, LIVE2DCUBISMFRAMEWORK.Animation.fromMotion3Json(r[el].data));
+                });
+                const coreModel = Live2DCubismCore.Model.fromMoc(moc);
+                if (!coreModel) return;
+                const animator = this.animatorBuilder.setTarget(coreModel).setTimeScale(this.timeScale).build();
+                let physicsRig = null;
+                if (this.physicsRigBuilder) {
+                    physicsRig = this.physicsRigBuilder.setTarget(coreModel).setTimeScale(this.timeScale).build();
+                }
+                const model = LIVE2DCUBISMPIXI.Model._create(coreModel, textures, animator, physicsRig, null, groups);
+                model.motions = motions;
+                this.models[name] = model;
+                callback(model);
+            });
+        });
+    }
+}
+
+function onL2DUpdate(delta) {
+    const deltaTime = 0.016 * delta;
+    if (!this.animator.isPlaying) {
+        const m = this.motions.get('idle');
+        if (m) this.animator.getLayer('base').play(m);
+    }
+    this._animator.updateAndEvaluate(deltaTime);
+    if (this._physicsRig) {
+        this._physicsRig.updateAndEvaluate(deltaTime);
+    }
+    this._coreModel.update();
+    let sort = false;
+    for (let m = 0; m < this._meshes.length; ++m) {
+        this._meshes[m].alpha = this._coreModel.drawables.opacities[m];
+        this._meshes[m].visible = Live2DCubismCore.Utils.hasIsVisibleBit(this._coreModel.drawables.dynamicFlags[m]);
+        if (Live2DCubismCore.Utils.hasVertexPositionsDidChangeBit(this._coreModel.drawables.dynamicFlags[m])) {
+            this._meshes[m].vertices = this._coreModel.drawables.vertexPositions[m];
+            this._meshes[m].dirtyVertex = true;
+        }
+        if (Live2DCubismCore.Utils.hasRenderOrderDidChangeBit(this._coreModel.drawables.dynamicFlags[m])) {
+            sort = true;
+        }
+    }
+    if (sort) {
+        this.children.sort((a, b) => {
+            const aIdx = this._meshes.indexOf(a);
+            const bIdx = this._meshes.indexOf(b);
+            return this._coreModel.drawables.renderOrders[aIdx] - this._coreModel.drawables.renderOrders[bIdx];
+        });
+    }
+    this._coreModel.drawables.resetDynamicFlags();
+}
+
+function loadLive2DModel(charId) {
+    const modelPath = L2D_MODEL_MAP[charId];
+    if (!modelPath) { hideLive2D(); return; }
+    if (!l2dApp) createL2DApp();
+    if (!l2dApp || !l2dInstance) { hideLive2D(); return; }
+
+    // Already showing this model?
+    if (l2dCurrentCharId === charId && l2dCurrentModel) {
+        showLive2D();
+        return;
+    }
+
+    // Remove old model
+    l2dApp.stage.removeChildren();
+    l2dCurrentModel = null;
+    l2dCurrentCharId = null;
+
+    l2dInstance.load(modelPath, (model) => {
+        l2dApp.stage.removeChildren();
+        model.update = onL2DUpdate;
+        model.animator.addLayer('base', LIVE2DCUBISMFRAMEWORK.BuiltinAnimationBlenders.OVERRIDE, 1);
+        l2dApp.stage.addChild(model);
+        l2dApp.stage.addChild(model.masks);
+        // Position and scale to fit 240x360
+        model.position = new PIXI.Point(120, 240);
+        model.scale = new PIXI.Point(7, 7);
+        model.masks.resize(l2dApp.view.width, l2dApp.view.height);
+        l2dCurrentModel = model;
+        l2dCurrentCharId = charId;
+        showLive2D();
+    });
+}
+
+function showLive2D() {
+    const area = document.getElementById('char-portrait-area');
+    if (area) area.classList.add('live2d-active');
+}
+
+function hideLive2D() {
+    const area = document.getElementById('char-portrait-area');
+    if (area) area.classList.remove('live2d-active');
 }
 
 function getDifficulty(id) {
@@ -1892,6 +2156,10 @@ function loadProfile() {
             currentDifficulty = p.difficulty || 'hard';
             puzzleProgress = p.puzzleProgress || {};
             currentCharacterId = p.characterId || null;
+            // Validate character ID still exists
+            if (currentCharacterId && !CHARACTER_IDS.includes(currentCharacterId)) {
+                currentCharacterId = null;
+            }
             if (currentCharacterId) currentDifficulty = currentCharacterId;
         }
     } catch (e) { /* ignore */ }
@@ -2965,6 +3233,7 @@ function newGame() {
    ================================================================ */
 function init() {
     loadProfile();
+    initLive2D();
     applySkin(currentSkinId);
     updateWinCounter();
     updateCharPanel();
@@ -2981,6 +3250,11 @@ function init() {
     document.getElementById('puzzle-backdrop').addEventListener('click', closePuzzlePanel);
     document.getElementById('char-select-close').addEventListener('click', closeCharSelect);
     document.getElementById('char-select-backdrop').addEventListener('click', closeCharSelect);
+
+    // Free mode button
+    document.getElementById('btn-free-mode').addEventListener('click', () => {
+        selectCharacter(null);
+    });
 
     const diffSelect = document.getElementById('difficulty-select');
     if (!isCharacterMode(currentDifficulty)) {
