@@ -963,6 +963,19 @@ h1 {
 .l2d-canvas-wrap canvas { width: 100% !important; height: 100% !important; }
 .l2d-canvas-wrap.show { display: block; }
 .char-panel.live2d-mode .char-portrait-svg { display: none; }
+.char-panel.live2d-mode {
+    width: 42vw; /* Explicit width for Live2D canvas (SVG is hidden, can't auto-size) */
+    max-width: 50vw;
+}
+.char-panel.live2d-mode .char-portrait-area {
+    width: 100%;
+    height: 100%;
+}
+.char-panel.live2d-mode .l2d-canvas-wrap {
+    position: relative; /* Participate in layout flow */
+    width: 100%;
+    height: 100%;
+}
 </style>
 <!-- Live2D scripts loaded dynamically to avoid blocking page render -->
 <!-- See loadLive2DScripts() in the inline JS below -->
