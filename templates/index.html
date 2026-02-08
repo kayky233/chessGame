@@ -49,6 +49,242 @@ body {
     text-align: center;
 }
 
+/* ==== Galgame 2-column Layout ==== */
+.galgame-wrap {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+/* Left: Character Panel */
+.char-panel {
+    width: 260px;
+    min-height: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    flex-shrink: 0;
+}
+.char-panel.hidden { display: none; }
+
+.char-portrait-area {
+    width: 240px;
+    height: 360px;
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+    background: rgba(255,255,255,0.03);
+    border: 1.5px solid rgba(255,255,255,0.08);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    margin-bottom: 0;
+}
+
+.char-portrait-svg {
+    width: 100%;
+    height: 100%;
+}
+
+.char-name-tag {
+    margin-top: 10px;
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--overlay-text);
+    letter-spacing: 3px;
+    text-shadow: 0 0 12px rgba(255,215,0,0.3);
+}
+
+.char-stars-tag {
+    font-size: 14px;
+    color: #FFD700;
+    margin-top: 2px;
+}
+
+/* Dialogue Bubble (Galgame style, below portrait) */
+.dialogue-bubble {
+    margin-top: 14px;
+    width: 240px;
+    min-height: 68px;
+    background: rgba(0,0,0,0.35);
+    border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 12px 14px;
+    text-align: left;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.dialogue-bubble.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.bubble-name {
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--overlay-text);
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+}
+
+.bubble-text {
+    font-size: 13px;
+    color: #ddd;
+    line-height: 1.6;
+    min-height: 36px;
+}
+
+.bubble-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 14px;
+    background: var(--overlay-text);
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: blink 0.8s step-end infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+/* Right panel */
+.game-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* ==== Character Select Panel (Modal) ==== */
+.char-select-backdrop {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 90;
+    animation: fadeIn 0.2s ease;
+}
+.char-select-backdrop.show { display: block; }
+
+.char-select-panel {
+    display: none;
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background: linear-gradient(180deg, rgba(20,20,42,0.98), rgba(10,10,28,0.99));
+    border: 1.5px solid rgba(255,255,255,0.1);
+    border-radius: 18px;
+    padding: 28px 28px 22px;
+    z-index: 100;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    min-width: 640px;
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.char-select-panel.show {
+    display: block;
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+}
+
+.char-select-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 22px;
+}
+.char-select-title {
+    color: #fff;
+    font-size: 20px;
+    font-weight: bold;
+    letter-spacing: 4px;
+}
+.char-select-close {
+    color: #888;
+    font-size: 28px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+    transition: color 0.2s;
+}
+.char-select-close:hover { color: #fff; }
+
+.char-cards {
+    display: flex;
+    gap: 18px;
+    justify-content: center;
+}
+
+.char-card {
+    width: 180px;
+    padding: 16px 12px;
+    border: 2px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.25s ease;
+    background: rgba(255,255,255,0.02);
+    position: relative;
+}
+.char-card:hover {
+    border-color: rgba(255,255,255,0.3);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+}
+.char-card.active {
+    border-color: var(--selected-glow);
+    box-shadow: 0 0 20px rgba(255,215,0,0.15);
+}
+
+.char-card-portrait {
+    width: 120px;
+    height: 150px;
+    margin: 0 auto 10px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.char-card-portrait svg {
+    width: 100%;
+    height: 100%;
+}
+
+.char-card-name {
+    color: #f0e6d0;
+    font-size: 17px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+}
+.char-card-stars {
+    color: #FFD700;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+.char-card-desc {
+    color: #9aa3b2;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.char-card-btn {
+    margin-top: 10px;
+    padding: 6px 20px;
+    font-size: 13px;
+    background: var(--btn-bg);
+    color: var(--btn-color);
+    border: 1.5px solid var(--btn-border);
+    border-radius: 16px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 1px;
+    transition: background 0.2s;
+}
+.char-card-btn:hover { background: var(--btn-bg-hover); }
+
 h1 {
     color: var(--title-color);
     font-size: 30px;
@@ -285,6 +521,8 @@ h1 {
 .difficulty-select option {
     color: #222;
 }
+
+/* (Dialogue styles moved to .dialogue-bubble above) */
 
 .info-bar {
     margin-top: 10px;
@@ -578,6 +816,31 @@ h1 {
 }
 
 /* ==== Responsive ==== */
+@media (max-width: 960px) {
+    .galgame-wrap {
+        flex-direction: column;
+        align-items: center;
+    }
+    .char-panel {
+        width: 100%;
+        min-height: auto;
+        flex-direction: row;
+        gap: 14px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    .char-portrait-area {
+        width: 140px;
+        height: 210px;
+    }
+    .dialogue-bubble {
+        width: 320px;
+        margin-top: 0;
+    }
+    .char-select-panel { min-width: auto; width: 94vw; padding: 20px 14px; }
+    .char-cards { flex-wrap: wrap; }
+    .char-card { width: 160px; }
+}
 @media (max-width: 630px) {
     .board-container {
         transform: scale(calc((100vw - 40px) / 576));
@@ -588,37 +851,68 @@ h1 {
     .skin-cards { flex-direction: column; }
     .puzzle-panel { min-width: auto; width: 92vw; padding: 20px 14px; }
     .puzzle-list { grid-template-columns: repeat(2, 1fr); }
+    .char-portrait-area { width: 120px; height: 180px; }
+    .char-card-portrait { width: 90px; height: 112px; }
 }
 </style>
 </head>
 <body>
 <div id="app">
     <h1>中 国 象 棋</h1>
-    <div class="board-container">
-        <svg id="board-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 640"></svg>
-        <div id="pieces-grid"></div>
-        <div id="overlay" class="overlay">
-            <span>AI 思考中...</span>
+    <div class="galgame-wrap">
+        <!-- Left: Character Panel -->
+        <div class="char-panel" id="char-panel">
+            <div class="char-portrait-area" id="char-portrait-area">
+                <svg class="char-portrait-svg" id="char-portrait-svg" viewBox="0 0 240 360"></svg>
+            </div>
+            <div class="char-name-tag" id="char-name-tag"></div>
+            <div class="char-stars-tag" id="char-stars-tag"></div>
+            <div class="dialogue-bubble" id="dialogue-bubble">
+                <div class="bubble-name" id="bubble-name"></div>
+                <div class="bubble-text" id="bubble-text"></div>
+            </div>
+        </div>
+
+        <!-- Right: Game Area -->
+        <div class="game-panel">
+            <div class="board-container">
+                <svg id="board-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 640"></svg>
+                <div id="pieces-grid"></div>
+                <div id="overlay" class="overlay">
+                    <span>AI 思考中...</span>
+                </div>
+            </div>
+            <div class="controls">
+                <span class="win-counter" id="win-counter">胜: 0 局</span>
+                <span id="status">红方回合</span>
+                <span class="difficulty-wrap" id="difficulty-wrap">
+                    <span class="difficulty-label">难度</span>
+                    <select id="difficulty-select" class="difficulty-select">
+                        <option value="easy">新手</option>
+                        <option value="normal">进阶</option>
+                        <option value="hard" selected>困难</option>
+                        <option value="master">大师</option>
+                    </select>
+                </span>
+                <button class="btn" id="btn-char">角 色</button>
+                <button class="btn" id="btn-new">新 局</button>
+                <button class="btn" id="btn-undo">悔 棋</button>
+                <button class="btn" id="btn-puzzle">残 局</button>
+                <button class="btn" id="btn-skin">皮 肤</button>
+            </div>
+            <div class="info-bar" id="info-bar"></div>
         </div>
     </div>
-    <div class="controls">
-        <span class="win-counter" id="win-counter">胜: 0 局</span>
-        <span id="status">红方回合</span>
-        <span class="difficulty-wrap">
-            <span class="difficulty-label">难度</span>
-            <select id="difficulty-select" class="difficulty-select">
-                <option value="easy">新手</option>
-                <option value="normal">进阶</option>
-                <option value="hard" selected>困难</option>
-                <option value="master">大师</option>
-            </select>
-        </span>
-        <button class="btn" id="btn-new">新 局</button>
-        <button class="btn" id="btn-undo">悔 棋</button>
-        <button class="btn" id="btn-puzzle">残 局</button>
-        <button class="btn" id="btn-skin">皮 肤</button>
+</div>
+
+<!-- Character Select Panel -->
+<div id="char-select-backdrop" class="char-select-backdrop"></div>
+<div id="char-select-panel" class="char-select-panel">
+    <div class="char-select-header">
+        <span class="char-select-title">选择对手</span>
+        <span class="char-select-close" id="char-select-close">&times;</span>
     </div>
-    <div class="info-bar" id="info-bar"></div>
+    <div class="char-cards" id="char-cards"></div>
 </div>
 
 <!-- Puzzle Panel -->
@@ -749,7 +1043,7 @@ const SKINS = [
 ];
 
 /* ================================================================
-   Difficulty Config
+   Difficulty & Character Config
    ================================================================ */
 const DIFFICULTY_LEVELS = [
     { id: 'easy', name: '新手', depth: 2 },
@@ -757,6 +1051,194 @@ const DIFFICULTY_LEVELS = [
     { id: 'hard', name: '困难', depth: 4 },
     { id: 'master', name: '大师', depth: 5 },
 ];
+
+const CHARACTER_IDS = ['qingluan', 'yinshuang', 'axis'];
+const CHARACTER_NAMES = { qingluan: '青鸾', yinshuang: '银霜', axis: '枢' };
+const CHARACTER_INFO = {
+    qingluan: {
+        name: '青鸾',
+        stars: 1,
+        desc: '活泼元气的少女棋手，棋风灵动多变，喜欢用巧招戏弄对手。',
+        colors: { hair: '#FF6B9D', skin: '#FFE4D0', dress: '#FF85B3', eye: '#E91E63', accent: '#FF4081' },
+    },
+    yinshuang: {
+        name: '银霜',
+        stars: 2,
+        desc: '千年修行的仙侠棋灵，举止优雅从容，棋路大开大合。',
+        colors: { hair: '#B8D4E3', skin: '#FFF3E8', dress: '#7BAFD4', eye: '#4FC3F7', accent: '#81D4FA' },
+    },
+    axis: {
+        name: '枢',
+        stars: 3,
+        desc: '超级AI战术核心，冰冷精密，追求绝对效率的终极对手。',
+        colors: { hair: '#90CAF9', skin: '#E8EAF6', dress: '#3F51B5', eye: '#00E5FF', accent: '#448AFF' },
+    },
+};
+
+function isCharacterMode(id) {
+    return CHARACTER_IDS.includes(id);
+}
+
+/* ==== SVG Character Portraits ==== */
+function drawCharPortrait(svgEl, charId, expression) {
+    // expression: 'normal', 'happy', 'angry'
+    const info = CHARACTER_INFO[charId];
+    if (!info) { svgEl.innerHTML = ''; return; }
+    const c = info.colors;
+    const vb = svgEl.getAttribute('viewBox') || '0 0 240 360';
+    const [,, w, h] = vb.split(' ').map(Number);
+    const cx = w / 2, scale = w / 240;
+
+    // Expression-dependent features
+    let eyeShape, mouthShape, blushOpacity = 0;
+    if (expression === 'happy') {
+        eyeShape = `<path d="M${80*scale},${135*scale} Q${90*scale},${125*scale} ${100*scale},${135*scale}" stroke="${c.eye}" stroke-width="3" fill="none" stroke-linecap="round"/>
+                    <path d="M${140*scale},${135*scale} Q${150*scale},${125*scale} ${160*scale},${135*scale}" stroke="${c.eye}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+        mouthShape = `<path d="M${100*scale},${165*scale} Q${cx},${180*scale} ${140*scale},${165*scale}" stroke="#E57373" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+        blushOpacity = 0.4;
+    } else if (expression === 'angry') {
+        eyeShape = `<line x1="${80*scale}" y1="${128*scale}" x2="${100*scale}" y2="${135*scale}" stroke="${c.eye}" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="${90*scale}" cy="${138*scale}" r="${4*scale}" fill="${c.eye}"/>
+                    <line x1="${160*scale}" y1="${128*scale}" x2="${140*scale}" y2="${135*scale}" stroke="${c.eye}" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="${150*scale}" cy="${138*scale}" r="${4*scale}" fill="${c.eye}"/>`;
+        mouthShape = `<path d="M${105*scale},${170*scale} Q${cx},${160*scale} ${135*scale},${170*scale}" stroke="#E57373" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+        blushOpacity = 0;
+    } else {
+        // normal
+        eyeShape = `<ellipse cx="${90*scale}" cy="${136*scale}" rx="${5*scale}" ry="${6*scale}" fill="${c.eye}"/>
+                    <ellipse cx="${150*scale}" cy="${136*scale}" rx="${5*scale}" ry="${6*scale}" fill="${c.eye}"/>
+                    <circle cx="${88*scale}" cy="${134*scale}" r="${2*scale}" fill="#fff" opacity="0.8"/>
+                    <circle cx="${148*scale}" cy="${134*scale}" r="${2*scale}" fill="#fff" opacity="0.8"/>`;
+        mouthShape = `<path d="M${108*scale},${165*scale} Q${cx},${172*scale} ${132*scale},${165*scale}" stroke="#E57373" stroke-width="1.5" fill="none"/>`;
+        blushOpacity = 0.15;
+    }
+
+    svgEl.innerHTML = `
+        <!-- Background gradient -->
+        <defs>
+            <linearGradient id="bg-grad-${charId}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="${c.accent}" stop-opacity="0.15"/>
+                <stop offset="100%" stop-color="${c.accent}" stop-opacity="0.03"/>
+            </linearGradient>
+            <radialGradient id="hair-grad-${charId}" cx="50%" cy="30%">
+                <stop offset="0%" stop-color="${c.hair}" stop-opacity="0.9"/>
+                <stop offset="100%" stop-color="${c.hair}" stop-opacity="0.6"/>
+            </radialGradient>
+        </defs>
+        <rect width="${w}" height="${h}" fill="url(#bg-grad-${charId})" rx="14"/>
+        <!-- Body / Dress -->
+        <ellipse cx="${cx}" cy="${h + 20*scale}" rx="${80*scale}" ry="${110*scale}" fill="${c.dress}" opacity="0.85"/>
+        <ellipse cx="${cx}" cy="${h - 30*scale}" rx="${55*scale}" ry="${40*scale}" fill="${c.dress}" opacity="0.9"/>
+        <!-- Neck -->
+        <rect x="${cx - 12*scale}" y="${185*scale}" width="${24*scale}" height="${30*scale}" rx="${8*scale}" fill="${c.skin}"/>
+        <!-- Face -->
+        <ellipse cx="${cx}" cy="${135*scale}" rx="${48*scale}" ry="${55*scale}" fill="${c.skin}"/>
+        <!-- Hair (back) -->
+        <ellipse cx="${cx}" cy="${100*scale}" rx="${56*scale}" ry="${50*scale}" fill="url(#hair-grad-${charId})"/>
+        <!-- Bangs -->
+        <path d="M${(cx-52*scale)},${115*scale} Q${(cx-30*scale)},${70*scale} ${cx},${75*scale} Q${(cx+30*scale)},${70*scale} ${(cx+52*scale)},${115*scale}" fill="${c.hair}"/>
+        <!-- Side hair -->
+        <ellipse cx="${(cx-45*scale)}" cy="${145*scale}" rx="${14*scale}" ry="${40*scale}" fill="${c.hair}" opacity="0.7"/>
+        <ellipse cx="${(cx+45*scale)}" cy="${145*scale}" rx="${14*scale}" ry="${40*scale}" fill="${c.hair}" opacity="0.7"/>
+        <!-- Eyes -->
+        ${eyeShape}
+        <!-- Blush -->
+        <ellipse cx="${78*scale}" cy="${150*scale}" rx="${10*scale}" ry="${5*scale}" fill="#FF8A80" opacity="${blushOpacity}"/>
+        <ellipse cx="${162*scale}" cy="${150*scale}" rx="${10*scale}" ry="${5*scale}" fill="#FF8A80" opacity="${blushOpacity}"/>
+        <!-- Mouth -->
+        ${mouthShape}
+        <!-- Decorative sparkles -->
+        <circle cx="${30*scale}" cy="${40*scale}" r="2" fill="${c.accent}" opacity="0.5"/>
+        <circle cx="${200*scale}" cy="${60*scale}" r="1.5" fill="${c.accent}" opacity="0.4"/>
+        <circle cx="${45*scale}" cy="${300*scale}" r="2" fill="${c.accent}" opacity="0.3"/>
+    `;
+}
+
+/* ==== Character Select Panel Logic ==== */
+let currentCharacterId = null; // null = no character, use difficulty mode
+
+function openCharSelect() {
+    document.getElementById('char-select-backdrop').classList.add('show');
+    document.getElementById('char-select-panel').classList.add('show');
+    renderCharCards();
+}
+function closeCharSelect() {
+    document.getElementById('char-select-backdrop').classList.remove('show');
+    document.getElementById('char-select-panel').classList.remove('show');
+}
+
+function renderCharCards() {
+    const container = document.getElementById('char-cards');
+    container.innerHTML = '';
+    CHARACTER_IDS.forEach(id => {
+        const info = CHARACTER_INFO[id];
+        const isActive = currentCharacterId === id;
+        const card = document.createElement('div');
+        card.className = 'char-card' + (isActive ? ' active' : '');
+        card.innerHTML = `
+            <div class="char-card-portrait"><svg viewBox="0 0 120 150"></svg></div>
+            <div class="char-card-name">${info.name}</div>
+            <div class="char-card-stars">${'★'.repeat(info.stars)}${'☆'.repeat(3 - info.stars)}</div>
+            <div class="char-card-desc">${info.desc}</div>
+            <button class="char-card-btn">${isActive ? '当前对手' : '选择'}</button>
+        `;
+        // Draw mini portrait
+        const svg = card.querySelector('svg');
+        drawCharPortrait(svg, id, 'normal');
+        card.querySelector('.char-card-btn').addEventListener('click', () => {
+            selectCharacter(id);
+        });
+        container.appendChild(card);
+    });
+
+    // Also add a "free play" card to go back to difficulty mode
+    const freeCard = document.createElement('div');
+    const isFree = !currentCharacterId;
+    freeCard.className = 'char-card' + (isFree ? ' active' : '');
+    freeCard.innerHTML = `
+        <div class="char-card-portrait" style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.05);">
+            <span style="font-size:48px;opacity:0.3">♟</span>
+        </div>
+        <div class="char-card-name">自由模式</div>
+        <div class="char-card-stars">☆☆☆</div>
+        <div class="char-card-desc">使用难度选择自由对战AI，无角色对话。</div>
+        <button class="char-card-btn">${isFree ? '当前模式' : '选择'}</button>
+    `;
+    freeCard.querySelector('.char-card-btn').addEventListener('click', () => {
+        selectCharacter(null);
+    });
+    container.appendChild(freeCard);
+}
+
+function selectCharacter(charId) {
+    currentCharacterId = charId;
+    if (charId) {
+        currentDifficulty = charId;
+    } else {
+        // Restore difficulty from dropdown
+        currentDifficulty = document.getElementById('difficulty-select').value || 'hard';
+    }
+    saveProfile();
+    updateCharPanel();
+    closeCharSelect();
+    newGame();
+}
+
+function updateCharPanel() {
+    const panel = document.getElementById('char-panel');
+    const diffWrap = document.getElementById('difficulty-wrap');
+    if (currentCharacterId) {
+        panel.classList.remove('hidden');
+        diffWrap.style.display = 'none';
+        const info = CHARACTER_INFO[currentCharacterId];
+        document.getElementById('char-name-tag').textContent = info.name;
+        document.getElementById('char-stars-tag').textContent = '★'.repeat(info.stars) + '☆'.repeat(3 - info.stars);
+        drawCharPortrait(document.getElementById('char-portrait-svg'), currentCharacterId, 'normal');
+    } else {
+        panel.classList.add('hidden');
+        diffWrap.style.display = '';
+    }
+}
 
 function getDifficulty(id) {
     return DIFFICULTY_LEVELS.find(d => d.id === id) || DIFFICULTY_LEVELS[2];
@@ -1409,6 +1891,8 @@ function loadProfile() {
             currentSkinId = p.skin || 'classic';
             currentDifficulty = p.difficulty || 'hard';
             puzzleProgress = p.puzzleProgress || {};
+            currentCharacterId = p.characterId || null;
+            if (currentCharacterId) currentDifficulty = currentCharacterId;
         }
     } catch (e) { /* ignore */ }
     /* Safety: if saved skin is locked, fallback */
@@ -1423,6 +1907,7 @@ function saveProfile() {
             skin: currentSkinId,
             difficulty: currentDifficulty,
             puzzleProgress: puzzleProgress,
+            characterId: currentCharacterId,
         }));
     } catch (e) { /* ignore */ }
 }
@@ -2043,11 +2528,21 @@ function handleClick(r, c) {
     if (selectedPos) {
         if (validMoves.some(m => m[0] === r && m[1] === c)) {
             const [fr, fc] = selectedPos;
+            const targetBefore = board[r][c]; /* piece about to be captured */
             saveHistory();
             doMove(fr, fc, r, c);
             selectedPos = null;
             validMoves = [];
             renderPieces();
+
+            /* Player captured an AI piece → character reacts */
+            if (targetBefore && targetBefore[0] === 'b' && isCharacterMode(currentDifficulty)) {
+                if (targetBefore === 'b_jiang') {
+                    fetchEventDialogue(currentDifficulty, 'lose');
+                } else {
+                    fetchEventDialogue(currentDifficulty, 'captured');
+                }
+            }
 
             if (!gameOver) {
                 if (puzzleActive) {
@@ -2175,14 +2670,24 @@ function saveHistory() {
    ================================================================ */
 async function requestAIMove() {
     try {
+        const isChar = isCharacterMode(currentDifficulty);
         const diff = getDifficulty(currentDifficulty);
+        const body = isChar
+            ? { board, character: currentDifficulty }
+            : { board, depth: diff.depth };
+
         const res = await fetch('/ai-move', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ board, depth: diff.depth }),
+            body: JSON.stringify(body),
         });
         const data = await res.json();
         showOverlay(false);
+
+        /* Show dialogue if present */
+        if (data.dialogue) {
+            showDialogue(CHARACTER_NAMES[currentDifficulty] || '?', data.dialogue, data.event);
+        }
 
         if (data.status === 'ok' && data.move) {
             const { from, to } = data.move;
@@ -2190,7 +2695,8 @@ async function requestAIMove() {
             doMove(from[0], from[1], to[0], to[1]);
             renderPieces();
 
-            const info = '难度: ' + diff.name + ' | AI: ' + (data.nodes || '?') + ' 节点, ' + (data.time || '?') + 's';
+            const label = isChar ? CHARACTER_NAMES[currentDifficulty] : ('难度: ' + diff.name);
+            const info = label + ' | AI: ' + (data.nodes || '?') + ' 节点, ' + (data.time || '?') + 's';
             document.getElementById('info-bar').textContent = info;
 
             if (!gameOver) {
@@ -2198,8 +2704,14 @@ async function requestAIMove() {
                 if (!hasAnyLegalMove(board, 'r')) {
                     gameOver = true;
                     setStatus('黑方胜利！（绝杀）');
+                    if (isCharacterMode(currentDifficulty)) {
+                        fetchEventDialogue(currentDifficulty, 'win');
+                    }
                 } else if (isInCheck(board, 'r')) {
                     setStatus('将军！ 红方回合');
+                    if (isCharacterMode(currentDifficulty)) {
+                        fetchEventDialogue(currentDifficulty, 'check');
+                    }
                 } else {
                     setStatus('红方回合');
                 }
@@ -2207,6 +2719,9 @@ async function requestAIMove() {
         } else {
             gameOver = true;
             setStatus('红方胜利！（AI无子可走）');
+            if (data.dialogue) {
+                showDialogue(CHARACTER_NAMES[currentDifficulty] || '?', data.dialogue, 'lose');
+            }
             wins++;
             updateWinCounter();
             saveProfile();
@@ -2218,6 +2733,91 @@ async function requestAIMove() {
         setStatus('网络错误，请重试');
         console.error('AI request failed:', err);
     }
+}
+
+/* ================================================================
+   Dialogue UI (Galgame Bubble + Typewriter + Expression)
+   ================================================================ */
+let dialogueTimer = null;
+let typewriterTimer = null;
+
+function eventToExpression(event) {
+    if (event === 'capture' || event === 'win' || event === 'check') return 'happy';
+    if (event === 'captured' || event === 'lose') return 'angry';
+    return 'normal';
+}
+
+function setExpression(expression) {
+    if (currentCharacterId) {
+        drawCharPortrait(document.getElementById('char-portrait-svg'), currentCharacterId, expression || 'normal');
+    }
+}
+
+function showDialogue(name, text, event) {
+    const bubble = document.getElementById('dialogue-bubble');
+    const nameEl = document.getElementById('bubble-name');
+    const textEl = document.getElementById('bubble-text');
+
+    nameEl.textContent = name;
+    bubble.classList.add('show');
+
+    // Expression
+    setExpression(eventToExpression(event || ''));
+
+    // Typewriter effect
+    clearInterval(typewriterTimer);
+    clearTimeout(dialogueTimer);
+    const fullText = '「' + text + '」';
+    let i = 0;
+    textEl.innerHTML = '<span class="bubble-cursor"></span>';
+    typewriterTimer = setInterval(() => {
+        if (i < fullText.length) {
+            textEl.innerHTML = fullText.slice(0, i + 1) + '<span class="bubble-cursor"></span>';
+            i++;
+        } else {
+            clearInterval(typewriterTimer);
+            textEl.innerHTML = fullText;
+            // Reset expression after a while
+            dialogueTimer = setTimeout(() => {
+                setExpression('normal');
+            }, 4000);
+        }
+    }, 45);
+}
+
+function hideDialogue() {
+    const bubble = document.getElementById('dialogue-bubble');
+    bubble.classList.remove('show');
+    clearInterval(typewriterTimer);
+    clearTimeout(dialogueTimer);
+}
+
+async function fetchStartDialogue(charId) {
+    try {
+        const res = await fetch('/dialogue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ character: charId, event: 'start' }),
+        });
+        const data = await res.json();
+        if (data.dialogue) {
+            showDialogue(CHARACTER_NAMES[charId] || '?', data.dialogue, 'start');
+        }
+    } catch (_) {}
+}
+
+async function fetchEventDialogue(charId, event) {
+    try {
+        const res = await fetch('/dialogue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ character: charId, event }),
+        });
+        const data = await res.json();
+        if (data.dialogue) {
+            showDialogue(CHARACTER_NAMES[charId] || '?', data.dialogue, event);
+        }
+    } catch (_) {}
 }
 
 /* ================================================================
@@ -2281,7 +2881,13 @@ function newGame() {
     setStatus('红方回合');
     showOverlay(false);
     document.getElementById('info-bar').textContent = '';
+    hideDialogue();
     renderPieces();
+
+    /* Character start dialogue */
+    if (isCharacterMode(currentDifficulty)) {
+        fetchStartDialogue(currentDifficulty);
+    }
 }
 
 /* ================================================================
@@ -2291,19 +2897,25 @@ function init() {
     loadProfile();
     applySkin(currentSkinId);
     updateWinCounter();
+    updateCharPanel();
     newGame();
 
     document.getElementById('btn-new').addEventListener('click', newGame);
     document.getElementById('btn-undo').addEventListener('click', undoMove);
     document.getElementById('btn-puzzle').addEventListener('click', openPuzzlePanel);
     document.getElementById('btn-skin').addEventListener('click', openSkinPanel);
+    document.getElementById('btn-char').addEventListener('click', openCharSelect);
     document.getElementById('skin-close').addEventListener('click', closeSkinPanel);
     document.getElementById('skin-backdrop').addEventListener('click', closeSkinPanel);
     document.getElementById('puzzle-close').addEventListener('click', closePuzzlePanel);
     document.getElementById('puzzle-backdrop').addEventListener('click', closePuzzlePanel);
+    document.getElementById('char-select-close').addEventListener('click', closeCharSelect);
+    document.getElementById('char-select-backdrop').addEventListener('click', closeCharSelect);
 
     const diffSelect = document.getElementById('difficulty-select');
-    diffSelect.value = currentDifficulty;
+    if (!isCharacterMode(currentDifficulty)) {
+        diffSelect.value = currentDifficulty;
+    }
     diffSelect.addEventListener('change', () => {
         currentDifficulty = diffSelect.value;
         saveProfile();

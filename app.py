@@ -17,6 +17,7 @@ from engine import XiangqiEngine
 import time
 import threading
 import os
+import random
 
 app = Flask(__name__)
 CORS(app)
@@ -108,6 +109,144 @@ metrics = Metrics()
 
 
 # ================================================================
+# Character Dialogue System
+# ================================================================
+CHARACTERS = {
+    'qingluan': {
+        'name': '青鸾',
+        'depth': 2,
+        'dialogues': {
+            'start': [
+                '哼，别以为本姑娘会手下留情！',
+                '又来挑战？这次可不会让你了！',
+                '准备好了吗？青鸾出招可是很快的哦~',
+                '嘁，看你一脸自信的样子……来吧！',
+            ],
+            'capture': [
+                '哈！吃掉了！你是不是走神了？',
+                '这颗子归我啦~谢谢款待！',
+                '嘿嘿，本姑娘眼光可准了。',
+                '别生气嘛，谁让你放在那里的~',
+            ],
+            'captured': [
+                '哼！这、这只是让你开心一下而已！',
+                '才不是我失误呢……是故意的！',
+                '可恶，小看你了……',
+                '啊！我的棋子！你你你……',
+            ],
+            'check': [
+                '将军！紧张了吧？嘻嘻~',
+                '你的帅很危险哦，要不要投降？',
+                '哈哈，这步走得漂亮吧！将军！',
+            ],
+            'win': [
+                '耶！赢啦！本姑娘果然厉害！',
+                '你输了哦~要不要再来一局？',
+                '哼哼，认输吧，这就是实力差距！',
+            ],
+            'lose': [
+                '才、才不是输了呢！是让着你的！',
+                '哼……下次绝对不会输给你！',
+                '好吧好吧，算你厉害……这次。',
+                '呜……再来一局！这局不算！',
+            ],
+        },
+    },
+    'yinshuang': {
+        'name': '银霜',
+        'depth': 3,
+        'dialogues': {
+            'start': [
+                '呵，既然唤醒了本宫，那就陪你手谈一局。',
+                '千年棋局，落子无悔。道友，请。',
+                '本宫已等候多时……来吧。',
+                '你的气息很特别。让本宫看看你的棋力。',
+            ],
+            'capture': [
+                '这枚棋子灵气已尽，本宫收下了。',
+                '你的阵脚乱了。',
+                '呵，意料之中。',
+                '凡间的棋子，脆弱如此。',
+            ],
+            'captured': [
+                '哦？有些手段。',
+                '看来不能把你当孩童看待了。',
+                '有趣……继续。',
+                '不错，你让本宫动了真念。',
+            ],
+            'check': [
+                '将军。道友，你的心乱了。',
+                '死局已现。这一刀，你接得住吗？',
+                '天罗地网，已成。',
+            ],
+            'win': [
+                '还需修炼五百年。',
+                '无趣。退下吧。',
+                '胜负已分。道友，后会有期。',
+            ],
+            'lose': [
+                '万年未遇敌手……你，很有趣。本宫记住了。',
+                '居然……呵，本宫小觑你了。',
+                '这一局，算你赢。但下一局，未必。',
+                '你的棋中有灵性。本宫承认你的实力。',
+            ],
+        },
+    },
+    'axis': {
+        'name': '枢',
+        'depth': 4,
+        'dialogues': {
+            'start': [
+                '神经连接已建立。战术模拟启动。',
+                '目标锁定。对弈协议加载完毕。',
+                '指挥官，你的胜率正在被计算中。',
+                '系统就绪。建议你认真对待本次模拟。',
+            ],
+            'capture': [
+                '敌方高价值单位已清除。',
+                '资源回收完毕。战场威胁下降。',
+                '执行优化指令。目标消除。',
+                '预判命中。效率：100%。',
+            ],
+            'captured': [
+                '检测到非预期损耗。正在重新评估。',
+                '误差在可接受范围内。',
+                '……修正战术模型。',
+                '数据异常。你的决策超出预测。',
+            ],
+            'check': [
+                '将军。逻辑闭环已形成，你无路可退。',
+                '终局协议启动。请投降以节省算力。',
+                'Checkmate 概率 98%。建议弃权。',
+            ],
+            'win': [
+                '实验结束。人类思维存在 82% 冗余。',
+                '任务完成。数据已归档。',
+                '结论：你不是本系统的对手。',
+            ],
+            'lose': [
+                '……数据溢出。无法解析你的逻辑。',
+                '任务失败。正在复盘异常决策链。',
+                '指挥官，你的棋风不在任何已知模型中。',
+                '……需要升级核心算法。你很强。',
+            ],
+        },
+    },
+}
+
+def get_character(char_id):
+    """Get character config, fallback to yinshuang."""
+    return CHARACTERS.get(char_id, CHARACTERS['yinshuang'])
+
+def get_dialogue(char_id, event):
+    """Pick a random dialogue line for the given character and event."""
+    char = get_character(char_id)
+    lines = char['dialogues'].get(event, [])
+    return random.choice(lines) if lines else ''
+
+
+
+# ================================================================
 # Routes
 # ================================================================
 
@@ -159,8 +298,13 @@ def ai_move():
                 'message': f'Row {i} must have 9 columns'
             }), 400
 
-    # --- Run AI ---
-    depth = data.get('depth', 4)
+    # --- Character & Depth ---
+    char_id = data.get('character', '')
+    if char_id and char_id in CHARACTERS:
+        char = get_character(char_id)
+        depth = char['depth']
+    else:
+        depth = data.get('depth', 4)
     depth = max(1, min(depth, 6))  # Clamp to safe range
 
     metrics.ai_start()
@@ -177,10 +321,15 @@ def ai_move():
             'status': 'ok',
             'move': None,
             'message': 'No valid moves for AI',
-            'time': round(dt, 3)
+            'time': round(dt, 3),
+            'event': 'lose',
+            'dialogue': get_dialogue(char_id, 'lose') if char_id else '',
         })
 
     fr, fc, tr, tc = move
+    captured = board[tr][tc] if board[tr][tc] else None
+    event = 'capture' if captured else 'move'
+
     return jsonify({
         'status': 'ok',
         'move': {
@@ -188,7 +337,25 @@ def ai_move():
             'to': [tr, tc]
         },
         'time': round(dt, 3),
-        'nodes': engine.nodes
+        'nodes': engine.nodes,
+        'event': event,
+        'dialogue': get_dialogue(char_id, event) if char_id and event != 'move' else '',
+    })
+
+
+@app.route('/dialogue', methods=['POST'])
+def dialogue():
+    """Return a dialogue line for a given character and event."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'dialogue': ''})
+    char_id = data.get('character', '')
+    event = data.get('event', '')
+    line = get_dialogue(char_id, event) if char_id and event else ''
+    return jsonify({
+        'dialogue': line,
+        'character': char_id,
+        'event': event,
     })
 
 
