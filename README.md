@@ -330,7 +330,7 @@ LLM_API_KEY 有值？
 
 ```javascript
 const FREE_CHARS  = new Set(['ibuki', 'unicorn', 'laffey']);
-const ADMIN_KEY   = 'XINKAI-2026';
+const ADMIN_KEY   = 'WYLNB-2026';
 ```
 
 ### 激活码格式
@@ -338,7 +338,7 @@ const ADMIN_KEY   = 'XINKAI-2026';
 | 输入 | 效果 |
 |------|------|
 | `ILOVE-CHESS` | **买断全部**：¥10 解锁所有付费角色 |
-| `XINKAI-2026` | **上帝模式**：全部解锁 + DEV 标识（开发者专用） |
+| `WYLNB-2026` | **上帝模式**：全部解锁 + DEV 标识（开发者专用） |
 
 购买链接：[爱发电 - kayky](https://afdian.com/a/kayky)
 
