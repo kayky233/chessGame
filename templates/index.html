@@ -203,12 +203,24 @@ body::after {
     display: flex;
     flex-direction: column;
     align-items: center;
+    /* Ensure board scales down when viewport is short */
+    max-height: 96vh;
 }
 /* No character mode: center the board */
 .game-panel.centered {
     right: auto;
     left: 50%;
     transform: translate(-50%, -50%);
+}
+/* Auto-scale board when viewport is shorter than the board */
+@media (max-height: 780px) {
+    .game-panel {
+        transform: translateY(-50%) scale(calc(100vh / 800));
+        transform-origin: center center;
+    }
+    .game-panel.centered {
+        transform: translate(-50%, -50%) scale(calc(100vh / 800));
+    }
 }
 
 /* ============================================================
@@ -952,11 +964,8 @@ h1 {
 .l2d-canvas-wrap.show { display: block; }
 .char-panel.live2d-mode .char-portrait-svg { display: none; }
 </style>
-<!-- Live2D Cubism 3 SDK (CDN from imuncle/live2d) -->
-<script src="https://imuncle.github.io/live2d/live2d_3/js/pixi.min.js"></script>
-<script src="https://imuncle.github.io/live2d/live2d_3/js/live2dcubismcore.min.js"></script>
-<script src="https://imuncle.github.io/live2d/live2d_3/js/live2dcubismframework.js"></script>
-<script src="https://imuncle.github.io/live2d/live2d_3/js/live2dcubismpixi.js"></script>
+<!-- Live2D scripts loaded dynamically to avoid blocking page render -->
+<!-- See loadLive2DScripts() in the inline JS below -->
 </head>
 <body>
 <div id="app">
@@ -1398,10 +1407,55 @@ const L2D_MODEL_MAP = {
 };
 
 let live2dEnabled = false;
+let live2dReady = false;   // true once all SDK scripts are loaded
 let l2dApp = null;        // PIXI.Application
 let l2dInstance = null;    // L2D loader instance
 let l2dCurrentModel = null; // current model reference
 let l2dCurrentCharId = null;
+
+/* ---- Dynamic Live2D SDK loader (non-blocking) ---- */
+const L2D_SCRIPTS = [
+    'https://imuncle.github.io/live2d/live2d_3/js/pixi.min.js',
+    'https://imuncle.github.io/live2d/live2d_3/js/live2dcubismcore.min.js',
+    'https://imuncle.github.io/live2d/live2d_3/js/live2dcubismframework.js',
+    'https://imuncle.github.io/live2d/live2d_3/js/live2dcubismpixi.js',
+];
+let l2dScriptLoadPromise = null;
+
+function loadLive2DScripts() {
+    if (live2dReady) return Promise.resolve();
+    if (l2dScriptLoadPromise) return l2dScriptLoadPromise;
+
+    l2dScriptLoadPromise = new Promise((resolve, reject) => {
+        let idx = 0;
+        function loadNext() {
+            if (idx >= L2D_SCRIPTS.length) {
+                live2dReady = true;
+                console.log('[Live2D] SDK loaded OK');
+                resolve();
+                return;
+            }
+            const s = document.createElement('script');
+            s.src = L2D_SCRIPTS[idx];
+            s.onload = () => { idx++; loadNext(); };
+            s.onerror = () => {
+                console.warn('[Live2D] Failed to load:', L2D_SCRIPTS[idx]);
+                reject(new Error('Live2D script load failed: ' + L2D_SCRIPTS[idx]));
+            };
+            document.head.appendChild(s);
+        }
+        loadNext();
+        // Timeout: 15 seconds
+        setTimeout(() => {
+            if (!live2dReady) {
+                console.warn('[Live2D] Load timeout (15s)');
+                reject(new Error('Live2D load timeout'));
+            }
+        }, 15000);
+    });
+    l2dScriptLoadPromise.catch(() => { l2dScriptLoadPromise = null; });
+    return l2dScriptLoadPromise;
+}
 
 function initLive2D() {
     // Restore toggle state
@@ -1416,12 +1470,17 @@ function initLive2D() {
             updateCharPanel();
         });
     }
+    // Pre-load scripts in background (don't block page)
+    if (live2dEnabled) {
+        loadLive2DScripts().catch(() => {});
+    }
 }
 
 function createL2DApp() {
-    if (l2dApp) return;
+    if (l2dApp) return true;
+    if (!live2dReady || typeof PIXI === 'undefined') return false;
     const wrap = document.getElementById('l2d-canvas-wrap');
-    if (!wrap) return;
+    if (!wrap) return false;
     try {
         l2dApp = new PIXI.Application(840, 1600, { transparent: true });
         l2dApp.view.style.width = '100%';
@@ -1435,9 +1494,11 @@ function createL2DApp() {
             l2dCurrentModel.update(dt);
             l2dCurrentModel.masks.update(l2dApp.renderer);
         });
+        return true;
     } catch (e) {
         console.warn('Live2D init failed:', e);
         l2dApp = null;
+        return false;
     }
 }
 
@@ -1569,33 +1630,39 @@ function onL2DUpdate(delta) {
 function loadLive2DModel(charId) {
     const modelPath = L2D_MODEL_MAP[charId];
     if (!modelPath) { hideLive2D(); return; }
-    if (!l2dApp) createL2DApp();
-    if (!l2dApp || !l2dInstance) { hideLive2D(); return; }
 
-    // Already showing this model?
-    if (l2dCurrentCharId === charId && l2dCurrentModel) {
-        showLive2D();
-        return;
-    }
+    // Async: ensure SDK is loaded first
+    loadLive2DScripts().then(() => {
+        if (!createL2DApp()) { hideLive2D(); return; }
+        if (!l2dApp || !l2dInstance) { hideLive2D(); return; }
 
-    // Remove old model
-    l2dApp.stage.removeChildren();
-    l2dCurrentModel = null;
-    l2dCurrentCharId = null;
+        // Already showing this model?
+        if (l2dCurrentCharId === charId && l2dCurrentModel) {
+            showLive2D();
+            return;
+        }
 
-    l2dInstance.load(modelPath, (model) => {
+        // Remove old model
         l2dApp.stage.removeChildren();
-        model.update = onL2DUpdate;
-        model.animator.addLayer('base', LIVE2DCUBISMFRAMEWORK.BuiltinAnimationBlenders.OVERRIDE, 1);
-        l2dApp.stage.addChild(model);
-        l2dApp.stage.addChild(model.masks);
-        // Position: center-x, model fills the tall portrait area
-        model.position = new PIXI.Point(420, 900);
-        model.scale = new PIXI.Point(40, 40);
-        model.masks.resize(l2dApp.view.width, l2dApp.view.height);
-        l2dCurrentModel = model;
-        l2dCurrentCharId = charId;
-        showLive2D();
+        l2dCurrentModel = null;
+        l2dCurrentCharId = null;
+
+        l2dInstance.load(modelPath, (model) => {
+            l2dApp.stage.removeChildren();
+            model.update = onL2DUpdate;
+            model.animator.addLayer('base', LIVE2DCUBISMFRAMEWORK.BuiltinAnimationBlenders.OVERRIDE, 1);
+            l2dApp.stage.addChild(model);
+            l2dApp.stage.addChild(model.masks);
+            model.position = new PIXI.Point(420, 900);
+            model.scale = new PIXI.Point(40, 40);
+            model.masks.resize(l2dApp.view.width, l2dApp.view.height);
+            l2dCurrentModel = model;
+            l2dCurrentCharId = charId;
+            showLive2D();
+        });
+    }).catch((err) => {
+        console.warn('[Live2D] Cannot load model, SDK unavailable:', err.message);
+        hideLive2D();
     });
 }
 
