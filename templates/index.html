@@ -1081,6 +1081,203 @@ h1 {
         max-width: 90%;
     }
 }
+
+/* ============================================================
+   Freemium — Locked Character Card State
+   ============================================================ */
+.char-card.locked {
+    filter: grayscale(90%) brightness(0.7);
+    opacity: 0.85;
+    cursor: pointer;                /* still clickable — opens payment modal */
+    position: relative;
+    border-color: #444 !important;
+    transition: filter 0.3s, opacity 0.3s;
+}
+.char-card.locked:hover {
+    filter: grayscale(60%) brightness(0.85);
+    opacity: 1;
+}
+/* Lock icon overlay */
+.char-card.locked::after {
+    content: '\1F512  ¥10';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    color: #ffd700;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: bold;
+    border: 1px solid rgba(255,215,0,0.5);
+    white-space: nowrap;
+    z-index: 5;
+    pointer-events: none;
+}
+/* Hide the "选择" button on locked cards */
+.char-card.locked .char-card-btn {
+    display: none;
+}
+
+/* ============================================================
+   Payment / Activation Modal
+   ============================================================ */
+.payment-backdrop {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 200;
+}
+.payment-backdrop.show { display: block; }
+
+.payment-modal {
+    display: none;
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 210;
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+    border: 2px solid #d4af37;
+    border-radius: 16px;
+    padding: 28px 26px;
+    width: 320px;
+    max-width: 90vw;
+    text-align: center;
+    color: #fff;
+    box-shadow: 0 0 40px rgba(212,175,55,0.25);
+}
+.payment-modal.show { display: block; }
+
+.payment-close {
+    position: absolute;
+    top: 10px; right: 14px;
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 24px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.payment-close:hover { color: #fff; }
+
+.payment-title {
+    font-size: 18px;
+    color: #ffd700;
+    margin: 0 0 16px 0;
+    letter-spacing: 2px;
+}
+
+.payment-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.payment-char-svg {
+    width: 80px;
+    height: 120px;
+    border-radius: 12px;
+    border: 2px solid rgba(255,215,0,0.4);
+    background: rgba(0,0,0,0.3);
+    margin-bottom: 8px;
+}
+.payment-char-name {
+    font-size: 16px;
+    font-weight: bold;
+    color: #e8e8e8;
+    letter-spacing: 2px;
+}
+
+.payment-price {
+    font-size: 13px;
+    color: #aaa;
+    margin: 10px 0;
+    line-height: 1.8;
+}
+.payment-price-tag {
+    color: #ffd700;
+    font-size: 26px;
+    font-weight: bold;
+    display: block;
+    margin: 6px 0;
+    text-shadow: 0 0 10px rgba(255,215,0,0.4);
+}
+
+.payment-buy-link {
+    color: #4facfe;
+    font-size: 12px;
+    text-decoration: none;
+    display: block;
+    margin-bottom: 14px;
+    opacity: 0.75;
+    transition: opacity 0.2s;
+}
+.payment-buy-link:hover { opacity: 1; text-decoration: underline; }
+
+.payment-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.payment-input-group input {
+    width: 100%;
+    padding: 11px 14px;
+    background: #0f0f1a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.payment-input-group input:focus {
+    border-color: #d4af37;
+}
+.payment-confirm-btn {
+    width: 100%;
+    padding: 11px;
+    background: linear-gradient(90deg, #d4af37, #f9d976);
+    border: none;
+    border-radius: 25px;
+    color: #000;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s;
+    letter-spacing: 1px;
+}
+.payment-confirm-btn:hover {
+    box-shadow: 0 0 16px rgba(255,215,0,0.4);
+}
+.payment-confirm-btn:active { transform: scale(0.97); }
+
+.payment-hint {
+    font-size: 12px;
+    min-height: 18px;
+    margin: 8px 0 0 0;
+    color: #ff6b6b;
+    transition: color 0.2s;
+}
+.payment-hint.success { color: #51cf66; }
+
+/* ============================================================
+   Admin God Mode — Golden Aura
+   ============================================================ */
+body.admin-mode .char-card {
+    border-color: rgba(255,215,0,0.5) !important;
+    box-shadow: 0 0 12px rgba(255,215,0,0.2);
+}
+.admin-badge {
+    color: #ffd700;
+    font-weight: bold;
+    margin-left: 6px;
+    text-shadow: 0 0 6px rgba(255,165,0,0.7);
+    font-size: 0.8em;
+    letter-spacing: 1px;
+}
 </style>
 <!-- Live2D scripts loaded dynamically to avoid blocking page render -->
 <!-- See loadLive2DScripts() in the inline JS below -->
@@ -1191,6 +1388,27 @@ h1 {
     </div>
 </div>
 
+<!-- Payment / Activation Modal -->
+<div id="payment-backdrop" class="payment-backdrop"></div>
+<div id="payment-modal" class="payment-modal">
+    <button class="payment-close" id="payment-close">&times;</button>
+    <h3 class="payment-title">解锁角色</h3>
+    <div class="payment-preview">
+        <svg id="pay-char-preview" class="payment-char-svg" viewBox="0 0 320 800"></svg>
+        <div class="payment-char-name" id="pay-char-name">角色名</div>
+    </div>
+    <p class="payment-price">
+        该角色为付费内容<br>
+        <span class="payment-price-tag">¥10.00</span>
+    </p>
+    <a href="#" class="payment-buy-link" target="_blank">没有激活码？联系开发者购买 &gt;</a>
+    <div class="payment-input-group">
+        <input type="text" id="cd-key-input" placeholder="请输入激活码 (CD-Key)" autocomplete="off">
+        <button class="payment-confirm-btn" id="payment-confirm-btn">立即激活</button>
+    </div>
+    <p class="payment-hint" id="payment-hint"></p>
+</div>
+
 <script>
 /* ================================================================
    Skin Definitions
@@ -1299,6 +1517,36 @@ const DIFFICULTY_LEVELS = [
 ];
 
 const CHARACTER_IDS = ['unicorn', 'laffey', 'shokaku', 'ibuki', 'sirius', 'taihou'];
+
+/* ============================================================
+   Freemium Configuration
+   FREE_CHARS: playable without activation.
+   PAID_CHARS: require CD-Key or admin god mode.
+   ============================================================ */
+const FREE_CHARS  = new Set(['ibuki', 'unicorn', 'laffey']);
+const ADMIN_KEY   = 'XINKAI-2026'; // admin god-mode passphrase
+
+// Unlock state (persisted via localStorage 'xiangqi_unlocks')
+let unlockedChars = (() => {
+    try {
+        const raw = localStorage.getItem('xiangqi_unlocks');
+        return raw ? new Set(JSON.parse(raw)) : new Set(FREE_CHARS);
+    } catch { return new Set(FREE_CHARS); }
+})();
+let isAdmin = localStorage.getItem('xiangqi_admin') === 'true';
+
+// On admin mode, ensure all chars unlocked
+if (isAdmin) { CHARACTER_IDS.forEach(id => unlockedChars.add(id)); }
+
+function saveUnlocks() {
+    try { localStorage.setItem('xiangqi_unlocks', JSON.stringify([...unlockedChars])); } catch {}
+}
+function isCharUnlocked(id) {
+    return FREE_CHARS.has(id) || unlockedChars.has(id) || isAdmin;
+}
+
+// Payment modal state
+let pendingPayCharId = null;
 const CHARACTER_NAMES = {
     unicorn: '独角兽', laffey: '拉菲', shokaku: '翔鹤',
     ibuki: '伊吹', sirius: '天狼星', taihou: '大凤',
@@ -1346,6 +1594,124 @@ const CHARACTER_INFO = {
         model: 'taihou',
         bg: 'linear-gradient(135deg, #1a0a0a 0%, #3a1018 40%, #2a0a1a 100%)',
     },
+};
+
+/* ============================================================
+   Payment Modal — Open / Close / Verify
+   ============================================================ */
+function openPaymentModal(charId) {
+    pendingPayCharId = charId;
+    const info = CHARACTER_INFO[charId];
+    if (!info) return;
+    // Render preview
+    const previewSvg = document.getElementById('pay-char-preview');
+    drawCharPortrait(previewSvg, charId, 'normal');
+    document.getElementById('pay-char-name').textContent = info.name;
+    document.getElementById('cd-key-input').value = '';
+    document.getElementById('payment-hint').textContent = '';
+    document.getElementById('payment-hint').className = 'payment-hint';
+    document.getElementById('payment-backdrop').classList.add('show');
+    document.getElementById('payment-modal').classList.add('show');
+}
+
+function closePaymentModal() {
+    document.getElementById('payment-backdrop').classList.remove('show');
+    document.getElementById('payment-modal').classList.remove('show');
+    pendingPayCharId = null;
+}
+
+function verifyCode() {
+    const hint = document.getElementById('payment-hint');
+    const input = document.getElementById('cd-key-input').value.trim().toUpperCase();
+    if (!input) {
+        hint.textContent = '请输入激活码';
+        hint.className = 'payment-hint';
+        return;
+    }
+
+    // --- Admin God Mode ---
+    if (input === ADMIN_KEY) {
+        activateGodMode();
+        return;
+    }
+
+    // --- Single character unlock: UNLOCK-<CHARID> ---
+    if (pendingPayCharId) {
+        const validCode = 'UNLOCK-' + pendingPayCharId.toUpperCase();
+        if (input === validCode) {
+            unlockSingleChar(pendingPayCharId);
+            return;
+        }
+    }
+
+    // --- Also accept UNLOCK-<anyID> regardless of which modal is open ---
+    const match = input.match(/^UNLOCK-(.+)$/);
+    if (match) {
+        const targetId = match[1].toLowerCase();
+        if (CHARACTER_IDS.includes(targetId) && !FREE_CHARS.has(targetId)) {
+            unlockSingleChar(targetId);
+            return;
+        }
+    }
+
+    hint.textContent = '激活码无效，请检查输入';
+    hint.className = 'payment-hint';
+}
+
+function unlockSingleChar(charId) {
+    unlockedChars.add(charId);
+    saveUnlocks();
+    const info = CHARACTER_INFO[charId];
+    const hint = document.getElementById('payment-hint');
+    hint.textContent = '🎉 成功解锁：' + (info ? info.name : charId);
+    hint.className = 'payment-hint success';
+    setTimeout(() => {
+        closePaymentModal();
+        renderCharCards();
+        selectCharacter(charId); // auto-select the newly unlocked character
+    }, 800);
+}
+
+function activateGodMode() {
+    CHARACTER_IDS.forEach(id => unlockedChars.add(id));
+    saveUnlocks();
+    isAdmin = true;
+    localStorage.setItem('xiangqi_admin', 'true');
+    document.body.classList.add('admin-mode');
+    const hint = document.getElementById('payment-hint');
+    hint.textContent = '👑 上帝模式已开启！所有角色已解锁';
+    hint.className = 'payment-hint success';
+    setTimeout(() => {
+        closePaymentModal();
+        renderCharCards();
+    }, 1000);
+}
+
+/* ============================================================
+   Admin badge in title bar
+   ============================================================ */
+function updateAdminUI() {
+    if (isAdmin) {
+        document.body.classList.add('admin-mode');
+        const titleEl = document.querySelector('h1');
+        if (titleEl && !document.getElementById('admin-badge')) {
+            const badge = document.createElement('span');
+            badge.id = 'admin-badge';
+            badge.className = 'admin-badge';
+            badge.textContent = ' 👑 DEV';
+            titleEl.appendChild(badge);
+        }
+    }
+}
+
+/* Reset all unlock data (dev tool) */
+window.resetGameData = function() {
+    if (confirm('确定要重置所有数据吗？（包括解锁记录和管理员状态）')) {
+        localStorage.removeItem('xiangqi_unlocks');
+        localStorage.removeItem('xiangqi_admin');
+        localStorage.removeItem('xiangqi_profile');
+        location.reload();
+    }
 };
 
 function isCharacterMode(id) {
@@ -1524,9 +1890,12 @@ function renderCharCards() {
     CHARACTER_IDS.forEach(id => {
         const info = CHARACTER_INFO[id];
         const isActive = currentCharacterId === id;
+        const unlocked = isCharUnlocked(id);
         const maxStars = 5;
         const card = document.createElement('div');
-        card.className = 'char-card' + (isActive ? ' active' : '');
+        card.className = 'char-card'
+            + (isActive ? ' active' : '')
+            + (!unlocked ? ' locked' : '');
         card.innerHTML = `
             <div class="char-card-portrait"><svg viewBox="0 0 320 800"></svg></div>
             <div class="char-card-name">${info.name}</div>
@@ -1536,14 +1905,31 @@ function renderCharCards() {
         `;
         const svg = card.querySelector('svg');
         drawCharPortrait(svg, id, 'normal');
-        card.querySelector('.char-card-btn').addEventListener('click', () => {
-            selectCharacter(id);
-        });
+        if (unlocked) {
+            card.querySelector('.char-card-btn').addEventListener('click', () => {
+                selectCharacter(id);
+            });
+        } else {
+            // Locked: clicking anywhere on the card opens payment modal
+            card.addEventListener('click', () => {
+                openPaymentModal(id);
+            });
+        }
         container.appendChild(card);
     });
+
+    // Admin mode golden aura
+    if (isAdmin) {
+        document.body.classList.add('admin-mode');
+    }
 }
 
 function selectCharacter(charId) {
+    // Guard: if paid char is somehow not unlocked, open payment
+    if (charId && !isCharUnlocked(charId)) {
+        openPaymentModal(charId);
+        return;
+    }
     currentCharacterId = charId;
     if (charId) {
         currentDifficulty = charId;
@@ -2540,9 +2926,20 @@ function loadProfile() {
             if (currentCharacterId && !CHARACTER_IDS.includes(currentCharacterId)) {
                 currentCharacterId = null;
             }
+            // Validate character is unlocked; if not, fallback to default
+            if (currentCharacterId && !isCharUnlocked(currentCharacterId)) {
+                currentCharacterId = 'ibuki'; // ibuki is always free
+            }
             if (currentCharacterId) currentDifficulty = currentCharacterId;
+        } else {
+            // First visit: default to ibuki
+            currentCharacterId = 'ibuki';
+            currentDifficulty = 'ibuki';
         }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+        currentCharacterId = 'ibuki';
+        currentDifficulty = 'ibuki';
+    }
     /* Safety: if saved skin is locked, fallback */
     const skin = getSkin(currentSkinId);
     if (skin.unlockWins > wins) currentSkinId = 'classic';
@@ -3671,6 +4068,17 @@ function init() {
     document.getElementById('puzzle-backdrop').addEventListener('click', closePuzzlePanel);
     document.getElementById('char-select-close').addEventListener('click', closeCharSelect);
     document.getElementById('char-select-backdrop').addEventListener('click', closeCharSelect);
+
+    // Payment modal events
+    document.getElementById('payment-close').addEventListener('click', closePaymentModal);
+    document.getElementById('payment-backdrop').addEventListener('click', closePaymentModal);
+    document.getElementById('payment-confirm-btn').addEventListener('click', verifyCode);
+    document.getElementById('cd-key-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') verifyCode();
+    });
+
+    // Admin UI badge
+    updateAdminUI();
 
     // Free mode button
     document.getElementById('btn-free-mode').addEventListener('click', () => {
