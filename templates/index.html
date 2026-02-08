@@ -80,82 +80,83 @@ body::after {
 }
 
 /* ============================================================
-   Character Layer — left side, full height
+   Layer 1 — Character Sprite (fixed, giant, no container)
    ============================================================ */
 .char-panel {
-    position: absolute;
-    left: 0;
+    position: fixed;
+    left: -3%;
     bottom: 0;
-    width: 420px;
-    height: 100vh;
+    height: 95vh;
+    width: auto;
+    max-width: 50vw;
     z-index: 10;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
     pointer-events: none;
-    padding-bottom: 100px; /* space for dialogue bar */
+    /* NO background, NO border, NO padding, NO box-shadow */
 }
 .char-panel.hidden { display: none; }
 
-/* Portrait container — near full height */
+/* The portrait fills the entire panel height */
 .char-portrait-area {
-    width: 100%;
-    height: 90vh;
+    width: auto;
+    height: 100%;
     position: relative;
-    overflow: hidden;
     pointer-events: none;
-    flex-shrink: 0;
 }
 .char-portrait-svg {
-    width: 100%;
     height: 100%;
-    filter: drop-shadow(0 0 20px rgba(0,0,0,0.5));
+    width: auto;
+    filter: drop-shadow(8px 0 25px rgba(0,0,0,0.6));
 }
 
-/* Character name + stars floating overlay */
-.char-name-tag {
+/* Live2D canvas matches the sprite area */
+.l2d-canvas-wrap {
     position: absolute;
-    bottom: 112px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 22px;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Name tag — overlay on the character's chest area */
+.char-name-tag {
+    position: fixed;
+    bottom: 160px;
+    left: 30px;
+    font-size: 20px;
     font-weight: bold;
     color: #fff;
     letter-spacing: 4px;
-    text-shadow: 0 2px 16px rgba(0,0,0,0.8), 0 0 30px var(--char-glow);
+    text-shadow: 0 2px 20px rgba(0,0,0,0.9), 0 0 40px var(--char-glow);
     z-index: 15;
     pointer-events: none;
     white-space: nowrap;
 }
 .char-stars-tag {
-    position: absolute;
-    bottom: 90px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 15px;
+    position: fixed;
+    bottom: 138px;
+    left: 32px;
+    font-size: 14px;
     color: #FFD700;
     z-index: 15;
     pointer-events: none;
-    text-shadow: 0 0 8px rgba(255,215,0,0.5);
+    text-shadow: 0 0 10px rgba(255,215,0,0.6);
 }
 
 /* ============================================================
-   Dialogue Bar — full-width bottom strip (Visual Novel style)
+   Dialogue Panel — Visual Novel style, bottom floating
    ============================================================ */
 .dialogue-bubble {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: auto;
-    min-height: 80px;
-    max-height: 130px;
-    background: linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.85) 30%);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-top: 1px solid rgba(255,255,255,0.08);
-    padding: 18px 30px 16px;
+    bottom: 30px;
+    left: 280px;  /* leave space for the character sprite */
+    right: 30px;
+    min-height: 90px;
+    max-height: 140px;
+    background: linear-gradient(90deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.65) 100%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-left: 3px solid var(--char-accent);
+    border-radius: 0 14px 14px 0;
+    padding: 18px 28px 16px 24px;
     z-index: 50;
     opacity: 0;
     transform: translateY(10px);
@@ -167,10 +168,10 @@ body::after {
     transform: translateY(0);
 }
 .bubble-name {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: bold;
     color: var(--char-accent);
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     letter-spacing: 2px;
 }
 .bubble-text {
@@ -178,7 +179,6 @@ body::after {
     color: #e8e8e8;
     line-height: 1.7;
     min-height: 24px;
-    max-width: 700px;
 }
 .bubble-cursor {
     display: inline-block;
@@ -192,14 +192,14 @@ body::after {
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
 /* ============================================================
-   Board Layer — right side, vertically centered
+   Layer 2 — Board + controls, right side, above character
    ============================================================ */
 .game-panel {
     position: absolute;
     right: 5%;
     top: 50%;
     transform: translateY(-50%);
-    z-index: 5;
+    z-index: 20;   /* above character sprite (z:10) */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -923,7 +923,7 @@ h1 {
 
 /* ==== Responsive ==== */
 @media (max-width: 1200px) {
-    .char-panel { width: 320px; }
+    .char-panel { max-width: 40vw; }
     .game-panel { right: 2%; }
 }
 @media (max-width: 960px) {
@@ -931,7 +931,7 @@ h1 {
     .game-panel { right: auto; left: 50%; transform: translate(-50%, -50%); }
     .char-select-panel { min-width: auto; width: 94vw; padding: 20px 14px; }
     .char-cards { grid-template-columns: repeat(2, 1fr); }
-    .dialogue-bubble { left: 5%; right: 5%; }
+    .dialogue-bubble { left: 30px; }
 }
 @media (max-width: 630px) {
     .board-container {
@@ -946,22 +946,10 @@ h1 {
     .char-card-portrait { width: 90px; height: 112px; }
 }
 
-/* ==== Live2D Canvas ==== */
-.l2d-canvas-wrap {
-    display: none;
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 2;
-    overflow: hidden;
-}
-.l2d-canvas-wrap canvas {
-    width: 100% !important;
-    height: 100% !important;
-}
+/* ==== Live2D ==== */
+.l2d-canvas-wrap { display: none; overflow: hidden; }
+.l2d-canvas-wrap canvas { width: 100% !important; height: 100% !important; }
 .l2d-canvas-wrap.show { display: block; }
-/* When Live2D active: hide SVG */
 .char-panel.live2d-mode .char-portrait-svg { display: none; }
 </style>
 <!-- Live2D Cubism 3 SDK (CDN from imuncle/live2d) -->
