@@ -337,10 +337,10 @@ const ADMIN_KEY   = 'XINKAI-2026';
 
 | 输入 | 效果 |
 |------|------|
-| `UNLOCK-TAIHOU` | 解锁大凤 |
-| `UNLOCK-SIRIUS` | 解锁天狼星 |
-| `UNLOCK-SHOKAKU` | 解锁翔鹤 |
-| `XINKAI-2026` | **上帝模式**：全部解锁 + DEV 标识 |
+| `ILOVE-CHESS` | **买断全部**：¥10 解锁所有付费角色 |
+| `XINKAI-2026` | **上帝模式**：全部解锁 + DEV 标识（开发者专用） |
+
+购买链接：[爱发电 - kayky](https://afdian.com/a/kayky)
 
 ### 持久化
 

@@ -1097,9 +1097,9 @@ h1 {
     filter: grayscale(60%) brightness(0.85);
     opacity: 1;
 }
-/* Lock icon overlay */
+/* Lock icon overlay — bundle pricing */
 .char-card.locked::after {
-    content: '\1F512  ¥10';
+    content: '\1F512  付费';
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
@@ -1205,16 +1205,65 @@ h1 {
     text-shadow: 0 0 10px rgba(255,215,0,0.4);
 }
 
-.payment-buy-link {
-    color: #4facfe;
-    font-size: 12px;
-    text-decoration: none;
-    display: block;
+/* Step layout inside payment modal */
+.payment-step {
     margin-bottom: 14px;
-    opacity: 0.75;
-    transition: opacity 0.2s;
+    text-align: left;
 }
-.payment-buy-link:hover { opacity: 1; text-decoration: underline; }
+.payment-step-label {
+    font-size: 13px;
+    font-weight: bold;
+    color: #d4af37;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+}
+.payment-step-desc {
+    font-size: 12px;
+    color: #bbb;
+    line-height: 1.7;
+    margin: 0 0 10px 0;
+    text-align: center;
+}
+/* Afdian purchase button */
+.payment-afdian-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 11px 16px;
+    background: #946ce6;
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: bold;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    letter-spacing: 0.5px;
+    box-sizing: border-box;
+}
+.payment-afdian-btn:hover { background: #7c5acc; }
+.payment-afdian-btn:active { transform: scale(0.97); }
+.payment-afdian-price {
+    background: rgba(255,255,255,0.2);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+/* Shake animation for invalid code */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+}
+.shake-error {
+    animation: shake 0.4s ease;
+    border-color: #ff6b6b !important;
+}
 
 .payment-input-group {
     display: flex;
@@ -1392,19 +1441,30 @@ body.admin-mode .char-card {
 <div id="payment-backdrop" class="payment-backdrop"></div>
 <div id="payment-modal" class="payment-modal">
     <button class="payment-close" id="payment-close">&times;</button>
-    <h3 class="payment-title">解锁角色</h3>
+    <h3 class="payment-title" id="payment-title">解锁全部付费角色</h3>
     <div class="payment-preview">
         <svg id="pay-char-preview" class="payment-char-svg" viewBox="0 0 320 800"></svg>
         <div class="payment-char-name" id="pay-char-name">角色名</div>
     </div>
-    <p class="payment-price">
-        该角色为付费内容<br>
-        <span class="payment-price-tag">¥10.00</span>
-    </p>
-    <a href="#" class="payment-buy-link" target="_blank">没有激活码？联系开发者购买 &gt;</a>
-    <div class="payment-input-group">
-        <input type="text" id="cd-key-input" placeholder="请输入激活码 (CD-Key)" autocomplete="off">
-        <button class="payment-confirm-btn" id="payment-confirm-btn">立即激活</button>
+    <!-- Step 1: Get activation code -->
+    <div class="payment-step">
+        <div class="payment-step-label">第一步：获取通用激活码</div>
+        <p class="payment-step-desc">
+            ✨ <strong>超值优惠</strong>：只需赞助 <strong style="color:#ffd700;">¥10.00</strong><br>
+            即可一次性解锁 <span style="color:#ffd700;">翔鹤、天狼星、大凤</span> 全部付费角色！
+        </p>
+        <a href="https://afdian.com/a/kayky" target="_blank" class="payment-afdian-btn" id="payment-afdian-btn">
+            <span class="payment-afdian-price">¥10.00</span>
+            前往爱发电获取（解锁全部）
+        </a>
+    </div>
+    <!-- Step 2: Enter code -->
+    <div class="payment-step">
+        <div class="payment-step-label">第二步：输入激活码</div>
+        <div class="payment-input-group">
+            <input type="text" id="cd-key-input" placeholder="请输入激活码" autocomplete="off">
+            <button class="payment-confirm-btn" id="payment-confirm-btn">立即激活</button>
+        </div>
     </div>
     <p class="payment-hint" id="payment-hint"></p>
 </div>
@@ -1523,8 +1583,10 @@ const CHARACTER_IDS = ['unicorn', 'laffey', 'shokaku', 'ibuki', 'sirius', 'taiho
    FREE_CHARS: playable without activation.
    PAID_CHARS: require CD-Key or admin god mode.
    ============================================================ */
-const FREE_CHARS  = new Set(['ibuki', 'unicorn', 'laffey']);
-const ADMIN_KEY   = 'XINKAI-2026'; // admin god-mode passphrase
+const FREE_CHARS   = new Set(['ibuki', 'unicorn', 'laffey']);
+const ADMIN_KEY    = 'XINKAI-2026';    // 👑 开发者上帝模式
+const BUNDLE_CODE  = 'ILOVE-CHESS';    // 💰 通用买断码（¥10 解锁全部付费角色）
+const AFDIAN_LINK  = 'https://afdian.com/a/kayky';
 
 // Unlock state (persisted via localStorage 'xiangqi_unlocks')
 let unlockedChars = (() => {
@@ -1603,13 +1665,17 @@ function openPaymentModal(charId) {
     pendingPayCharId = charId;
     const info = CHARACTER_INFO[charId];
     if (!info) return;
-    // Render preview
+    // Render preview of the clicked character
     const previewSvg = document.getElementById('pay-char-preview');
     drawCharPortrait(previewSvg, charId, 'normal');
-    document.getElementById('pay-char-name').textContent = info.name;
+    // Title: emphasize "unlock ALL" from the clicked character
+    document.getElementById('payment-title').textContent = '解锁全部付费角色';
+    document.getElementById('pay-char-name').textContent = '解锁「' + info.name + '」及所有付费角色';
+    // Reset input & hints
     document.getElementById('cd-key-input').value = '';
     document.getElementById('payment-hint').textContent = '';
     document.getElementById('payment-hint').className = 'payment-hint';
+    // Show modal
     document.getElementById('payment-backdrop').classList.add('show');
     document.getElementById('payment-modal').classList.add('show');
 }
@@ -1622,54 +1688,45 @@ function closePaymentModal() {
 
 function verifyCode() {
     const hint = document.getElementById('payment-hint');
-    const input = document.getElementById('cd-key-input').value.trim().toUpperCase();
+    const inputEl = document.getElementById('cd-key-input');
+    const input = inputEl.value.trim().toUpperCase();
     if (!input) {
         hint.textContent = '请输入激活码';
         hint.className = 'payment-hint';
         return;
     }
 
-    // --- Admin God Mode ---
+    // --- 👑 Admin God Mode (developer) ---
     if (input === ADMIN_KEY) {
         activateGodMode();
         return;
     }
 
-    // --- Single character unlock: UNLOCK-<CHARID> ---
-    if (pendingPayCharId) {
-        const validCode = 'UNLOCK-' + pendingPayCharId.toUpperCase();
-        if (input === validCode) {
-            unlockSingleChar(pendingPayCharId);
-            return;
-        }
+    // --- 💰 Bundle Code: unlock ALL paid characters ---
+    if (input === BUNDLE_CODE) {
+        unlockAllPaid();
+        return;
     }
 
-    // --- Also accept UNLOCK-<anyID> regardless of which modal is open ---
-    const match = input.match(/^UNLOCK-(.+)$/);
-    if (match) {
-        const targetId = match[1].toLowerCase();
-        if (CHARACTER_IDS.includes(targetId) && !FREE_CHARS.has(targetId)) {
-            unlockSingleChar(targetId);
-            return;
-        }
-    }
-
-    hint.textContent = '激活码无效，请检查输入';
+    // --- Invalid ---
+    hint.textContent = '激活码错误，请检查爱发电【感谢信】中的激活码';
     hint.className = 'payment-hint';
+    inputEl.classList.add('shake-error');
+    setTimeout(() => inputEl.classList.remove('shake-error'), 500);
 }
 
-function unlockSingleChar(charId) {
-    unlockedChars.add(charId);
+function unlockAllPaid() {
+    CHARACTER_IDS.forEach(id => unlockedChars.add(id));
     saveUnlocks();
-    const info = CHARACTER_INFO[charId];
     const hint = document.getElementById('payment-hint');
-    hint.textContent = '🎉 成功解锁：' + (info ? info.name : charId);
+    hint.textContent = '🎉 激活成功！感谢支持，所有付费角色已解锁！';
     hint.className = 'payment-hint success';
     setTimeout(() => {
         closePaymentModal();
         renderCharCards();
-        selectCharacter(charId); // auto-select the newly unlocked character
-    }, 800);
+        // Auto-select the character that triggered the modal
+        if (pendingPayCharId) selectCharacter(pendingPayCharId);
+    }, 1000);
 }
 
 function activateGodMode() {
