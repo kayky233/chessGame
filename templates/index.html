@@ -376,6 +376,8 @@ h1 {
     z-index: 100;
     box-shadow: 0 30px 80px rgba(0,0,0,0.6);
     min-width: 520px;
+    max-height: 80vh;
+    overflow: hidden;
     opacity: 0;
     transition: transform 0.25s ease, opacity 0.25s ease;
 }
@@ -411,6 +413,9 @@ h1 {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 12px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 4px;
 }
 
 .puzzle-card {
