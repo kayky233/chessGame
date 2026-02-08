@@ -38,64 +38,82 @@
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 /* ============================================================
-   Body — immersive full-screen
+   Body — full viewport, dark fallback
    ============================================================ */
 body {
-    background: #0a0a14;
-    min-height: 100vh;
-    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;          /* dvh: Dynamic Viewport Height — fixes iOS Safari / WeChat bottom bar overlap */
+    overflow: hidden;         /* No scrollbars ever */
+    background: #0a0a14;     /* Dark fallback visible on ultra-wide screen margins */
     font-family: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif;
-    transition: background 0.5s ease;
+    margin: 0;
 }
-/* Atmospheric background layer */
+
+/* Atmospheric gradient background — covers the entire viewport */
 body::before {
     content: '';
     position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
+    inset: 0;                /* Shorthand for top/right/bottom/left: 0 */
     background: var(--body-bg);
     z-index: 0;
     transition: background 1s ease;
 }
-/* Vignette overlay for depth */
+
+/* Vignette overlay — adds depth / cinematic framing */
 body::after {
     content: '';
     position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: radial-gradient(ellipse at 65% 50%, transparent 40%, rgba(0,0,0,0.6) 100%);
+    inset: 0;
+    background: radial-gradient(ellipse at 60% 50%, transparent 40%, rgba(0,0,0,0.55) 100%);
     z-index: 0;
     pointer-events: none;
 }
 
 /* ============================================================
-   Main Scene Layout (absolute positioning for full control)
+   #app — full-viewport z-index wrapper
    ============================================================ */
 #app {
     position: relative;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     z-index: 1;
+}
+
+/* ============================================================
+   #game-stage — THE constrained content area (核心)
+   All game UI lives inside this container.
+   max-width prevents layout from spreading on ultra-wide (2K/4K) screens.
+   margin: 0 auto centers it when viewport exceeds max-width.
+   ============================================================ */
+#game-stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    max-width: 1600px;       /* KEY: caps layout width, prevents 2K/4K stretching */
+    margin: 0 auto;          /* Center the stage on ultra-wide monitors */
     overflow: hidden;
 }
 
 /* ============================================================
-   Layer 1 — Character Sprite (fixed, giant, no container)
+   Layer 1 — Character Sprite
+   position: absolute so it's relative to #game-stage, not viewport.
+   height: 90vh keeps the Galgame-style tall character feel.
    ============================================================ */
 .char-panel {
-    position: fixed;
-    left: -3%;
+    position: absolute;       /* Relative to #game-stage */
     bottom: 0;
-    height: 95vh;
+    left: 3%;
+    height: 90vh;             /* KEY: tall sprite for immersive Galgame feel */
     width: auto;
-    max-width: 50vw;
+    max-width: 45vw;          /* Don't cover more than half the stage */
     z-index: 10;
     pointer-events: none;
-    /* NO background, NO border, NO padding, NO box-shadow */
+    transition: opacity 0.4s ease, height 0.4s ease;
 }
 .char-panel.hidden { display: none; }
 
-/* The portrait fills the entire panel height */
+/* Portrait area fills the panel height */
 .char-portrait-area {
     width: auto;
     height: 100%;
@@ -108,18 +126,18 @@ body::after {
     filter: drop-shadow(8px 0 25px rgba(0,0,0,0.6));
 }
 
-/* Live2D canvas matches the sprite area */
+/* Live2D canvas overlays the portrait area */
 .l2d-canvas-wrap {
     position: absolute;
-    top: 0; left: 0;
+    inset: 0;
     width: 100%;
     height: 100%;
 }
 
-/* Name tag — overlay on the character's chest area */
+/* Name / Stars — positioned within .char-panel (absolute, not fixed) */
 .char-name-tag {
-    position: fixed;
-    bottom: 160px;
+    position: absolute;       /* Moves with char-panel on mobile */
+    bottom: 130px;
     left: 30px;
     font-size: 20px;
     font-weight: bold;
@@ -131,8 +149,8 @@ body::after {
     white-space: nowrap;
 }
 .char-stars-tag {
-    position: fixed;
-    bottom: 138px;
+    position: absolute;
+    bottom: 108px;
     left: 32px;
     font-size: 14px;
     color: #FFD700;
@@ -143,11 +161,12 @@ body::after {
 
 /* ============================================================
    Dialogue Panel — Visual Novel style, bottom floating
+   position: absolute within #game-stage.
    ============================================================ */
 .dialogue-bubble {
-    position: fixed;
+    position: absolute;       /* Relative to #game-stage */
     bottom: 30px;
-    left: 280px;  /* leave space for the character sprite */
+    left: 280px;              /* Leave room for the character sprite on the left */
     right: 30px;
     min-height: 90px;
     max-height: 140px;
@@ -192,42 +211,45 @@ body::after {
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
 /* ============================================================
-   Layer 2 — Board + controls, right side, above character
+   Layer 2 — Board + controls
+   position: absolute within #game-stage.
+   z-index: 20 ensures board sits above the character sprite (z:10).
    ============================================================ */
 .game-panel {
-    position: absolute;
-    right: 5%;
+    position: absolute;       /* Relative to #game-stage */
+    right: 8%;
     top: 50%;
     transform: translateY(-50%);
-    z-index: 20;   /* above character sprite (z:10) */
+    z-index: 20;              /* Above character sprite layer */
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* Ensure board scales down when viewport is short */
-    max-height: 96vh;
 }
-/* No character mode: center the board */
+
+/* No character selected → center the board */
 .game-panel.centered {
     right: auto;
     left: 50%;
     transform: translate(-50%, -50%);
 }
-/* Auto-scale board when viewport is shorter than the board */
-@media (max-height: 780px) {
+
+/* PC short screens: scale board to fit when viewport is shorter than content */
+@media (max-height: 800px) and (min-width: 769px) {
     .game-panel {
-        transform: translateY(-50%) scale(calc(100vh / 800));
-        transform-origin: center center;
+        transform: translateY(-50%) scale(calc((100vh - 40px) / 780));
+        transform-origin: right center;
     }
     .game-panel.centered {
-        transform: translate(-50%, -50%) scale(calc(100vh / 800));
+        transform: translate(-50%, -50%) scale(calc((100vh - 40px) / 780));
+        transform-origin: center center;
     }
 }
 
 /* ============================================================
-   Top-right toolbar (settings / meta buttons)
+   Top-right toolbar — absolute within #game-stage
    ============================================================ */
 .toolbar-top {
-    position: fixed;
+    position: absolute;       /* Relative to #game-stage, not viewport */
     top: 16px;
     right: 20px;
     z-index: 60;
@@ -350,9 +372,9 @@ body::after {
 }
 .difficulty-select option { color: #222; }
 
-/* Hidden title — we'll use a subtle top-left logo instead */
+/* Title — subtle top-left, absolute within #game-stage */
 h1 {
-    position: fixed;
+    position: absolute;       /* Relative to #game-stage */
     top: 16px;
     left: 24px;
     z-index: 60;
@@ -933,38 +955,122 @@ h1 {
     to   { transform: rotate(360deg); }
 }
 
-/* ==== Responsive ==== */
-@media (max-width: 1200px) {
-    .char-panel { max-width: 40vw; }
+/* ============================================================
+   Responsive — PC Tablet Narrowing
+   ============================================================ */
+@media (max-width: 1200px) and (min-width: 769px) {
+    .char-panel { max-width: 38vw; }
     .game-panel { right: 2%; }
 }
-@media (max-width: 960px) {
-    .char-panel { display: none !important; }
-    .game-panel { right: auto; left: 50%; transform: translate(-50%, -50%); }
-    .char-select-panel { min-width: auto; width: 94vw; padding: 20px 14px; }
-    .char-cards { grid-template-columns: repeat(2, 1fr); }
-    .dialogue-bubble { left: 30px; }
-}
-@media (max-width: 630px) {
-    .board-container {
-        transform: scale(calc((100vw - 20px) / 576));
+
+/* ============================================================
+   Responsive — Mobile / Portrait Mode
+   Triggers on narrow screens OR portrait aspect ratios.
+   Layout switches from side-by-side to stacked (board on top).
+   ============================================================ */
+@media screen and (max-width: 768px), screen and (max-aspect-ratio: 3/4) {
+    /* dvh: Dynamic Viewport Height — fixes iOS Safari / WeChat bottom toolbar overlap */
+    body {
+        height: 100dvh;
+    }
+    #game-stage {
+        height: 100dvh;
+    }
+
+    /* --- Board: becomes the visual core, centered at the top --- */
+    .game-panel {
+        top: 5%;                  /* Push slightly down from top edge */
+        right: auto;
+        left: 50%;
+        /* Scale board to fit screen width; 576px is the board's native width */
+        transform: translateX(-50%) scale(min(1, calc((100vw - 20px) / 576)));
         transform-origin: top center;
     }
-    h1 { font-size: 14px; }
+    .game-panel.centered {
+        top: 5%;
+        right: auto;
+        left: 50%;
+        transform: translateX(-50%) scale(min(1, calc((100vw - 20px) / 576)));
+        transform-origin: top center;
+    }
+
+    /* --- Character: shrinks and becomes a translucent background accent --- */
+    .char-panel {
+        height: 55vh;             /* Smaller — don't compete with the board */
+        left: 50%;
+        bottom: 0;
+        transform: translateX(-50%);
+        opacity: 0.7;             /* Translucent so it doesn't distract */
+        z-index: 5;               /* Below the board (z:20) */
+        max-width: 80vw;
+    }
+    .char-name-tag {
+        bottom: 50px;
+        left: auto;
+        right: 10px;
+        font-size: 16px;
+    }
+    .char-stars-tag {
+        bottom: 32px;
+        left: auto;
+        right: 12px;
+        font-size: 12px;
+    }
+
+    /* --- Dialogue: full width at the very bottom --- */
+    .dialogue-bubble {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        min-height: 60px;
+        max-height: 100px;
+        border-radius: 12px;
+        padding: 12px 16px 10px 14px;
+    }
+    .bubble-name { font-size: 13px; margin-bottom: 5px; }
+    .bubble-text { font-size: 13px; line-height: 1.5; }
+
+    /* --- Toolbar: tighter spacing --- */
+    .toolbar-top { top: 8px; right: 10px; gap: 6px; }
+    .toolbar-btn { width: 34px; height: 34px; font-size: 15px; }
+
+    /* --- Title --- */
+    h1 { font-size: 13px; top: 10px; left: 12px; }
+
+    /* --- Modals: full-width on mobile --- */
+    .char-select-panel { min-width: auto; width: 94vw; padding: 20px 14px; }
+    .char-cards { grid-template-columns: repeat(2, 1fr); }
+    .char-card { width: auto; }
+    .char-card-portrait { width: 90px; height: 112px; }
     .skin-panel { min-width: auto; width: 92vw; padding: 20px 14px; }
     .skin-cards { flex-direction: column; }
     .puzzle-panel { min-width: auto; width: 92vw; padding: 20px 14px; }
     .puzzle-list { grid-template-columns: repeat(2, 1fr); }
-    .char-card-portrait { width: 90px; height: 112px; }
 }
 
-/* ==== Live2D ==== */
+/* ============================================================
+   Responsive — Very small phones (< 400px width)
+   ============================================================ */
+@media (max-width: 400px) {
+    .game-panel, .game-panel.centered { top: 2%; }
+    .action-btn { width: 36px; height: 36px; font-size: 11px; }
+    .game-status { gap: 8px; margin-bottom: 6px; }
+    #status { font-size: 14px; }
+}
+
+/* ============================================================
+   Live2D Overrides
+   When Live2D mode is on, the SVG is hidden. Since the SVG was
+   the only element giving char-panel its width (via auto sizing),
+   we must provide an explicit width so the canvas isn't 0-width.
+   ============================================================ */
 .l2d-canvas-wrap { display: none; overflow: hidden; }
 .l2d-canvas-wrap canvas { width: 100% !important; height: 100% !important; }
 .l2d-canvas-wrap.show { display: block; }
+
 .char-panel.live2d-mode .char-portrait-svg { display: none; }
 .char-panel.live2d-mode {
-    width: 42vw; /* Explicit width for Live2D canvas (SVG is hidden, can't auto-size) */
+    width: 42vw;              /* Explicit width since SVG (the auto-sizer) is hidden */
     max-width: 50vw;
 }
 .char-panel.live2d-mode .char-portrait-area {
@@ -972,9 +1078,17 @@ h1 {
     height: 100%;
 }
 .char-panel.live2d-mode .l2d-canvas-wrap {
-    position: relative; /* Participate in layout flow */
+    position: relative;       /* Participate in layout flow */
     width: 100%;
     height: 100%;
+}
+
+/* Live2D on mobile: wider relative area */
+@media (max-width: 768px) {
+    .char-panel.live2d-mode {
+        width: 65vw;
+        max-width: 80vw;
+    }
 }
 </style>
 <!-- Live2D scripts loaded dynamically to avoid blocking page render -->
@@ -982,6 +1096,7 @@ h1 {
 </head>
 <body>
 <div id="app">
+<div id="game-stage">
     <!-- Title — subtle top-left -->
     <h1>中国象棋</h1>
 
@@ -1036,7 +1151,8 @@ h1 {
         <div class="bubble-name" id="bubble-name"></div>
         <div class="bubble-text" id="bubble-text"></div>
     </div>
-</div>
+</div><!-- /#game-stage -->
+</div><!-- /#app -->
 
 <!-- Character Select Panel -->
 <div id="char-select-backdrop" class="char-select-backdrop"></div>
