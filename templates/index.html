@@ -5,16 +5,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>中国象棋</title>
 <style>
+/* ============================================================
+   CSS Custom Properties (Classic skin defaults)
+   ============================================================ */
+:root {
+    --body-bg: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    --board-bg: #DEB887;
+    --board-border: #5D3A1A;
+    --board-outline: #3E2310;
+    --board-shadow: 0 10px 50px rgba(0,0,0,0.6), inset 0 0 30px rgba(93,58,26,0.15);
+    --line-color: #5D3A1A;
+    --river-text: #7B5B3A;
+    --piece-bg: radial-gradient(circle at 38% 30%, #FFF8E7, #DEB887 55%, #B8860B 100%);
+    --piece-border: #8B6914;
+    --piece-shadow: 2px 3px 6px rgba(0,0,0,0.35), inset 0 1px 3px rgba(255,255,255,0.35);
+    --piece-hover-shadow: 3px 4px 10px rgba(0,0,0,0.45), inset 0 1px 3px rgba(255,255,255,0.35);
+    --red-color: #C41E3A;
+    --black-color: #1A1A1A;
+    --selected-glow: #FFD700;
+    --title-color: #e6d5a8;
+    --status-color: #e6d5a8;
+    --btn-bg: linear-gradient(180deg, #A0522D, #8B4513);
+    --btn-bg-hover: linear-gradient(180deg, #B5623A, #A0522D);
+    --btn-border: #D2691E;
+    --btn-color: #FFF8E7;
+    --overlay-text: #FFD700;
+}
+
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    background: var(--body-bg);
     min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: flex-start;
     padding: 20px 0;
     font-family: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans SC', sans-serif;
+    transition: background 0.5s ease;
 }
 
 #app {
@@ -22,11 +50,12 @@ body {
 }
 
 h1 {
-    color: #e6d5a8;
+    color: var(--title-color);
     font-size: 30px;
     margin-bottom: 16px;
     letter-spacing: 6px;
     text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+    transition: color 0.4s;
 }
 
 .board-container {
@@ -34,12 +63,13 @@ h1 {
     display: inline-block;
     width: 576px;
     height: 640px;
-    border: 6px solid #5D3A1A;
+    border: 6px solid var(--board-border);
     border-radius: 6px;
-    box-shadow: 0 10px 50px rgba(0,0,0,0.6), inset 0 0 30px rgba(93,58,26,0.15);
-    background: #DEB887;
-    outline: 3px solid #3E2310;
+    box-shadow: var(--board-shadow);
+    background: var(--board-bg);
+    outline: 3px solid var(--board-outline);
     outline-offset: 2px;
+    transition: background 0.5s, border-color 0.5s, box-shadow 0.5s, outline-color 0.5s;
 }
 
 #board-svg {
@@ -67,27 +97,19 @@ h1 {
     z-index: 1;
 }
 
-.cell.last-from {
-    background: rgba(255, 200, 0, 0.22);
-}
+.cell.last-from { background: rgba(255, 200, 0, 0.22); }
+.cell.last-to   { background: rgba(255, 200, 0, 0.32); }
 
-.cell.last-to {
-    background: rgba(255, 200, 0, 0.32);
-}
-
-/* Valid move dot indicator */
 .cell.valid-move::before {
     content: '';
     position: absolute;
-    width: 14px;
-    height: 14px;
+    width: 14px; height: 14px;
     border-radius: 50%;
     background: rgba(0, 160, 0, 0.5);
     box-shadow: 0 0 6px rgba(0, 160, 0, 0.4);
     z-index: 2;
 }
 
-/* Valid capture ring on enemy piece */
 .cell.valid-capture .piece {
     box-shadow: 0 0 0 3px rgba(220, 0, 0, 0.65),
                 2px 3px 6px rgba(0,0,0,0.3),
@@ -96,8 +118,7 @@ h1 {
 
 /* ==== Piece Styling ==== */
 .piece {
-    width: 50px;
-    height: 50px;
+    width: 50px; height: 50px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -107,35 +128,34 @@ h1 {
     font-family: 'KaiTi', 'STKaiti', 'FangSong', 'STFangsong', 'SimSun', serif;
     user-select: none;
     cursor: pointer;
-    background: radial-gradient(circle at 38% 30%, #FFF8E7, #DEB887 55%, #B8860B 100%);
-    border: 2.5px solid #8B6914;
-    box-shadow: 2px 3px 6px rgba(0,0,0,0.35),
-                inset 0 1px 3px rgba(255,255,255,0.35);
-    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    background: var(--piece-bg);
+    border: 2.5px solid var(--piece-border);
+    box-shadow: var(--piece-shadow);
+    transition: transform 0.12s ease, box-shadow 0.12s ease,
+                background 0.4s, border-color 0.4s;
     z-index: 3;
     line-height: 1;
 }
 
 .piece:hover {
     transform: scale(1.1);
-    box-shadow: 3px 4px 10px rgba(0,0,0,0.45),
-                inset 0 1px 3px rgba(255,255,255,0.35);
+    box-shadow: var(--piece-hover-shadow);
 }
 
 .piece.red {
-    color: #C41E3A;
-    text-shadow: 0 1px 1px rgba(196,30,58,0.2);
+    color: var(--red-color);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.15);
 }
 
 .piece.black {
-    color: #1A1A1A;
-    text-shadow: 0 1px 1px rgba(0,0,0,0.15);
+    color: var(--black-color);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.1);
 }
 
 .piece.selected {
     transform: scale(1.15);
-    box-shadow: 0 0 0 3px #FFD700,
-                0 0 18px rgba(255, 215, 0, 0.6),
+    box-shadow: 0 0 0 3px var(--selected-glow),
+                0 0 18px color-mix(in srgb, var(--selected-glow) 60%, transparent),
                 2px 3px 6px rgba(0,0,0,0.3);
 }
 
@@ -151,13 +171,9 @@ h1 {
     justify-content: center;
     border-radius: 4px;
 }
-
-.overlay.show {
-    display: flex;
-}
-
+.overlay.show { display: flex; }
 .overlay span {
-    color: #FFD700;
+    color: var(--overlay-text);
     font-size: 26px;
     font-weight: bold;
     text-shadow: 2px 2px 8px rgba(0,0,0,0.6);
@@ -175,37 +191,233 @@ h1 {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 24px;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.win-counter {
+    color: var(--overlay-text);
+    font-size: 15px;
+    font-weight: bold;
+    padding: 6px 14px;
+    border: 1.5px solid var(--btn-border);
+    border-radius: 20px;
+    letter-spacing: 1px;
+    opacity: 0.9;
+    transition: color 0.4s, border-color 0.4s;
 }
 
 #status {
-    color: #e6d5a8;
+    color: var(--status-color);
     font-size: 18px;
-    min-width: 180px;
-    text-align: right;
+    min-width: 150px;
+    text-align: center;
+    transition: color 0.4s;
 }
 
 .btn {
-    padding: 10px 26px;
+    padding: 10px 22px;
     font-size: 15px;
-    background: linear-gradient(180deg, #A0522D, #8B4513);
-    color: #FFF8E7;
-    border: 2px solid #D2691E;
+    background: var(--btn-bg);
+    color: var(--btn-color);
+    border: 2px solid var(--btn-border);
     border-radius: 6px;
     cursor: pointer;
     font-family: inherit;
     letter-spacing: 2px;
-    transition: background 0.2s;
+    transition: background 0.2s, border-color 0.4s, color 0.4s;
 }
-
-.btn:hover {
-    background: linear-gradient(180deg, #B5623A, #A0522D);
-}
+.btn:hover { background: var(--btn-bg-hover); }
 
 .info-bar {
     margin-top: 10px;
     color: #8899aa;
     font-size: 13px;
+}
+
+/* ==== Skin Panel ==== */
+.skin-backdrop {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    z-index: 90;
+    animation: fadeIn 0.2s ease;
+}
+.skin-backdrop.show { display: block; }
+
+.skin-panel {
+    display: none;
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background: linear-gradient(180deg, rgba(25,25,50,0.97), rgba(15,15,35,0.99));
+    border: 1.5px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 28px 24px 24px;
+    z-index: 100;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    min-width: 420px;
+    opacity: 0;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.skin-panel.show {
+    display: block;
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+}
+
+.skin-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 22px;
+}
+.skin-panel-title {
+    color: #fff;
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 3px;
+}
+.skin-panel-close {
+    color: #888;
+    font-size: 26px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+    transition: color 0.2s;
+}
+.skin-panel-close:hover { color: #fff; }
+
+.skin-cards {
+    display: flex;
+    gap: 14px;
+}
+
+.skin-card {
+    flex: 1;
+    padding: 14px 10px;
+    border: 2px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.25s ease;
+    background: rgba(255,255,255,0.03);
+    position: relative;
+}
+.skin-card:hover:not(.locked) {
+    border-color: rgba(255,255,255,0.25);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.skin-card.active {
+    border-color: var(--selected-glow);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--selected-glow) 30%, transparent);
+}
+.skin-card.locked {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.skin-preview {
+    height: 56px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    position: relative;
+    overflow: hidden;
+}
+/* Lines drawn in the preview via JS */
+.skin-preview canvas { width: 100%; height: 100%; }
+
+.skin-name {
+    color: #eee;
+    font-size: 15px;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+.skin-desc {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 6px;
+}
+.skin-status {
+    font-size: 12px;
+    font-weight: bold;
+    padding: 3px 10px;
+    border-radius: 10px;
+    display: inline-block;
+}
+.skin-status.using {
+    background: rgba(76,175,80,0.2);
+    color: #66BB6A;
+}
+.skin-status.unlocked {
+    background: rgba(100,100,255,0.1);
+    color: #90CAF9;
+}
+.skin-status.need {
+    background: rgba(255,255,255,0.05);
+    color: #777;
+}
+
+/* ==== Unlock Toast ==== */
+.unlock-toast {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.75);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    cursor: pointer;
+}
+.unlock-toast.show {
+    display: flex;
+    animation: fadeIn 0.4s ease;
+}
+
+.unlock-content {
+    text-align: center;
+    animation: unlockBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.unlock-icon {
+    font-size: 60px;
+    color: #FFD700;
+    text-shadow: 0 0 40px rgba(255,215,0,0.6);
+    animation: spin 2s linear infinite;
+    margin-bottom: 10px;
+}
+.unlock-content h2 {
+    color: #FFD700;
+    font-size: 32px;
+    text-shadow: 0 0 30px rgba(255,215,0,0.5);
+    margin-bottom: 12px;
+    letter-spacing: 4px;
+}
+.unlock-content p {
+    color: #fff;
+    font-size: 20px;
+    margin-bottom: 20px;
+}
+.unlock-hint {
+    color: #888;
+    font-size: 13px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; } to { opacity: 1; }
+}
+@keyframes unlockBounce {
+    from { transform: scale(0.3); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
 }
 
 /* ==== Responsive ==== */
@@ -215,6 +427,8 @@ h1 {
         transform-origin: top center;
     }
     h1 { font-size: 24px; }
+    .skin-panel { min-width: auto; width: 92vw; padding: 20px 14px; }
+    .skin-cards { flex-direction: column; }
 }
 </style>
 </head>
@@ -229,14 +443,299 @@ h1 {
         </div>
     </div>
     <div class="controls">
+        <span class="win-counter" id="win-counter">胜: 0 局</span>
         <span id="status">红方回合</span>
         <button class="btn" id="btn-new">新 局</button>
         <button class="btn" id="btn-undo">悔 棋</button>
+        <button class="btn" id="btn-skin">皮 肤</button>
     </div>
     <div class="info-bar" id="info-bar"></div>
 </div>
 
+<!-- Skin Selection Panel -->
+<div id="skin-backdrop" class="skin-backdrop"></div>
+<div id="skin-panel" class="skin-panel">
+    <div class="skin-panel-header">
+        <span class="skin-panel-title">选择棋盘皮肤</span>
+        <span class="skin-panel-close" id="skin-close">&times;</span>
+    </div>
+    <div class="skin-cards" id="skin-cards"></div>
+</div>
+
+<!-- Unlock Notification -->
+<div id="unlock-toast" class="unlock-toast">
+    <div class="unlock-content">
+        <div class="unlock-icon">&#9733;</div>
+        <h2>新皮肤解锁！</h2>
+        <p id="unlock-skin-name"></p>
+        <span class="unlock-hint">点击任意处关闭</span>
+    </div>
+</div>
+
 <script>
+/* ================================================================
+   Skin Definitions
+   ================================================================ */
+const SKINS = [
+    {
+        id: 'classic',
+        name: '怀旧经典',
+        unlockWins: 0,
+        desc: '传统木质棋盘',
+        preview: { board: '#DEB887', line: '#5D3A1A' },
+        vars: {
+            '--body-bg': 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+            '--board-bg': '#DEB887',
+            '--board-border': '#5D3A1A',
+            '--board-outline': '#3E2310',
+            '--board-shadow': '0 10px 50px rgba(0,0,0,0.6), inset 0 0 30px rgba(93,58,26,0.15)',
+            '--line-color': '#5D3A1A',
+            '--river-text': '#7B5B3A',
+            '--piece-bg': 'radial-gradient(circle at 38% 30%, #FFF8E7, #DEB887 55%, #B8860B 100%)',
+            '--piece-border': '#8B6914',
+            '--piece-shadow': '2px 3px 6px rgba(0,0,0,0.35), inset 0 1px 3px rgba(255,255,255,0.35)',
+            '--piece-hover-shadow': '3px 4px 10px rgba(0,0,0,0.45), inset 0 1px 3px rgba(255,255,255,0.35)',
+            '--red-color': '#C41E3A',
+            '--black-color': '#1A1A1A',
+            '--selected-glow': '#FFD700',
+            '--title-color': '#e6d5a8',
+            '--status-color': '#e6d5a8',
+            '--btn-bg': 'linear-gradient(180deg, #A0522D, #8B4513)',
+            '--btn-bg-hover': 'linear-gradient(180deg, #B5623A, #A0522D)',
+            '--btn-border': '#D2691E',
+            '--btn-color': '#FFF8E7',
+            '--overlay-text': '#FFD700',
+        },
+    },
+    {
+        id: 'ice',
+        name: '冰蓝科技',
+        unlockWins: 3,
+        desc: '深蓝棋盘 · 冰蓝光线',
+        preview: { board: '#0c1a2a', line: '#00BCD4' },
+        vars: {
+            '--body-bg': 'linear-gradient(135deg, #050510 0%, #0a1628 50%, #0d1f3c 100%)',
+            '--board-bg': '#0c1a2a',
+            '--board-border': '#00838F',
+            '--board-outline': '#004D5A',
+            '--board-shadow': '0 0 40px rgba(0,188,212,0.25), inset 0 0 30px rgba(0,188,212,0.06)',
+            '--line-color': '#00838F',
+            '--river-text': '#26C6DA',
+            '--piece-bg': 'radial-gradient(circle at 38% 30%, #1E3A4F, #0F2535 55%, #081820 100%)',
+            '--piece-border': '#00ACC1',
+            '--piece-shadow': '0 0 10px rgba(0,188,212,0.3), 2px 3px 6px rgba(0,0,0,0.5)',
+            '--piece-hover-shadow': '0 0 18px rgba(0,188,212,0.5), 2px 3px 8px rgba(0,0,0,0.5)',
+            '--red-color': '#FF5252',
+            '--black-color': '#B2EBF2',
+            '--selected-glow': '#00E5FF',
+            '--title-color': '#4DD0E1',
+            '--status-color': '#4DD0E1',
+            '--btn-bg': 'linear-gradient(180deg, #00695C, #004D40)',
+            '--btn-bg-hover': 'linear-gradient(180deg, #00897B, #00695C)',
+            '--btn-border': '#00BCD4',
+            '--btn-color': '#B2EBF2',
+            '--overlay-text': '#00E5FF',
+        },
+    },
+    {
+        id: 'fire',
+        name: '烈焰暗金',
+        unlockWins: 10,
+        desc: '暗黑棋盘 · 金焰纹路',
+        preview: { board: '#1a1208', line: '#DAA520' },
+        vars: {
+            '--body-bg': 'linear-gradient(135deg, #0a0500 0%, #1a0d00 50%, #100800 100%)',
+            '--board-bg': '#1a1208',
+            '--board-border': '#B8860B',
+            '--board-outline': '#8B6914',
+            '--board-shadow': '0 0 40px rgba(255,165,0,0.2), inset 0 0 30px rgba(255,165,0,0.05)',
+            '--line-color': '#8B6914',
+            '--river-text': '#DAA520',
+            '--piece-bg': 'radial-gradient(circle at 38% 30%, #3D2B0A, #1F1506 55%, #100A03 100%)',
+            '--piece-border': '#DAA520',
+            '--piece-shadow': '0 0 10px rgba(255,165,0,0.25), 2px 3px 6px rgba(0,0,0,0.5)',
+            '--piece-hover-shadow': '0 0 18px rgba(255,165,0,0.4), 2px 3px 8px rgba(0,0,0,0.5)',
+            '--red-color': '#FF6B35',
+            '--black-color': '#FFD700',
+            '--selected-glow': '#FF8C00',
+            '--title-color': '#FFD700',
+            '--status-color': '#DAA520',
+            '--btn-bg': 'linear-gradient(180deg, #8B4513, #5D2906)',
+            '--btn-bg-hover': 'linear-gradient(180deg, #A0522D, #8B4513)',
+            '--btn-border': '#DAA520',
+            '--btn-color': '#FFD700',
+            '--overlay-text': '#FF8C00',
+        },
+    },
+];
+
+/* ================================================================
+   Skin System State & Functions
+   ================================================================ */
+let currentSkinId = 'classic';
+let wins = 0;
+
+function getSkin(id) {
+    return SKINS.find(s => s.id === id) || SKINS[0];
+}
+
+function applySkin(skinId) {
+    const skin = getSkin(skinId);
+    /* Verify unlocked */
+    if (skin.unlockWins > wins) {
+        skinId = 'classic';
+    }
+    currentSkinId = skinId;
+    const s = getSkin(currentSkinId);
+    const root = document.documentElement.style;
+    for (const [prop, val] of Object.entries(s.vars)) {
+        root.setProperty(prop, val);
+    }
+    drawBoard();
+    renderSkinCards();
+}
+
+function loadProfile() {
+    try {
+        const raw = localStorage.getItem('xiangqi_profile');
+        if (raw) {
+            const p = JSON.parse(raw);
+            wins = p.wins || 0;
+            currentSkinId = p.skin || 'classic';
+        }
+    } catch (e) { /* ignore */ }
+    /* Safety: if saved skin is locked, fallback */
+    const skin = getSkin(currentSkinId);
+    if (skin.unlockWins > wins) currentSkinId = 'classic';
+}
+
+function saveProfile() {
+    try {
+        localStorage.setItem('xiangqi_profile', JSON.stringify({
+            wins: wins,
+            skin: currentSkinId,
+        }));
+    } catch (e) { /* ignore */ }
+}
+
+function updateWinCounter() {
+    document.getElementById('win-counter').textContent = '胜: ' + wins + ' 局';
+}
+
+function checkUnlock() {
+    /* Find newly unlocked skins */
+    for (const skin of SKINS) {
+        if (skin.unlockWins > 0 && skin.unlockWins === wins) {
+            showUnlockToast(skin);
+            return;
+        }
+    }
+}
+
+function showUnlockToast(skin) {
+    document.getElementById('unlock-skin-name').textContent =
+        '「' + skin.name + '」 已解锁！';
+    const toast = document.getElementById('unlock-toast');
+    toast.classList.add('show');
+    const dismiss = () => { toast.classList.remove('show'); toast.removeEventListener('click', dismiss); };
+    toast.addEventListener('click', dismiss);
+    setTimeout(dismiss, 4000);
+}
+
+/* ==== Skin Panel ==== */
+function openSkinPanel() {
+    renderSkinCards();
+    document.getElementById('skin-backdrop').classList.add('show');
+    /* Small delay for CSS transition */
+    requestAnimationFrame(() => {
+        document.getElementById('skin-panel').classList.add('show');
+    });
+}
+
+function closeSkinPanel() {
+    document.getElementById('skin-panel').classList.remove('show');
+    document.getElementById('skin-backdrop').classList.remove('show');
+}
+
+function renderSkinCards() {
+    const container = document.getElementById('skin-cards');
+    if (!container) return;
+    container.innerHTML = '';
+
+    for (const skin of SKINS) {
+        const card = document.createElement('div');
+        const isUnlocked = wins >= skin.unlockWins;
+        const isActive = currentSkinId === skin.id;
+
+        card.className = 'skin-card';
+        if (isActive) card.classList.add('active');
+        if (!isUnlocked) card.classList.add('locked');
+
+        /* Preview */
+        const preview = document.createElement('div');
+        preview.className = 'skin-preview';
+        preview.style.background = skin.preview.board;
+
+        /* Draw mini grid lines on preview */
+        const cvs = document.createElement('canvas');
+        cvs.width = 140; cvs.height = 56;
+        const ctx = cvs.getContext('2d');
+        ctx.strokeStyle = skin.preview.line;
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 5; i++) {
+            ctx.beginPath();
+            ctx.moveTo(0, 8 + i * 10); ctx.lineTo(140, 8 + i * 10);
+            ctx.stroke();
+        }
+        for (let i = 0; i < 9; i++) {
+            ctx.beginPath();
+            ctx.moveTo(10 + i * 15, 8); ctx.lineTo(10 + i * 15, 48);
+            ctx.stroke();
+        }
+        preview.appendChild(cvs);
+        card.appendChild(preview);
+
+        /* Name */
+        const nameEl = document.createElement('div');
+        nameEl.className = 'skin-name';
+        nameEl.textContent = skin.name;
+        card.appendChild(nameEl);
+
+        /* Description */
+        const descEl = document.createElement('div');
+        descEl.className = 'skin-desc';
+        descEl.textContent = skin.desc;
+        card.appendChild(descEl);
+
+        /* Status badge */
+        const statusEl = document.createElement('span');
+        statusEl.className = 'skin-status';
+        if (isActive) {
+            statusEl.classList.add('using');
+            statusEl.textContent = '使用中';
+        } else if (isUnlocked) {
+            statusEl.classList.add('unlocked');
+            statusEl.textContent = '点击使用';
+        } else {
+            statusEl.classList.add('need');
+            const need = skin.unlockWins - wins;
+            statusEl.textContent = '再赢 ' + need + ' 局解锁';
+        }
+        card.appendChild(statusEl);
+
+        /* Click handler */
+        if (isUnlocked && !isActive) {
+            card.addEventListener('click', () => {
+                applySkin(skin.id);
+                saveProfile();
+                renderPieces();
+            });
+        }
+
+        container.appendChild(card);
+    }
+}
+
 /* ================================================================
    Constants
    ================================================================ */
@@ -275,18 +774,21 @@ let lastMove = null;
 let history = [];
 
 /* ================================================================
-   Board Drawing (SVG)
+   Board Drawing (SVG) — reads skin colors
    ================================================================ */
 function drawBoard() {
     const svg = document.getElementById('board-svg');
     svg.innerHTML = '';
     const ns = 'http://www.w3.org/2000/svg';
+    const skin = getSkin(currentSkinId);
+    const lineColor = skin.vars['--line-color'];
+    const riverColor = skin.vars['--river-text'];
 
     function addLine(x1, y1, x2, y2, w) {
         const el = document.createElementNS(ns, 'line');
         el.setAttribute('x1', x1); el.setAttribute('y1', y1);
         el.setAttribute('x2', x2); el.setAttribute('y2', y2);
-        el.setAttribute('stroke', '#5D3A1A');
+        el.setAttribute('stroke', lineColor);
         el.setAttribute('stroke-width', w || 1.5);
         svg.appendChild(el);
     }
@@ -297,7 +799,7 @@ function drawBoard() {
         el.setAttribute('text-anchor', 'middle');
         el.setAttribute('dominant-baseline', 'central');
         el.setAttribute('font-size', size || 26);
-        el.setAttribute('fill', '#7B5B3A');
+        el.setAttribute('fill', riverColor);
         el.setAttribute('font-family', 'KaiTi, STKaiti, FangSong, serif');
         el.setAttribute('opacity', '0.75');
         el.textContent = text;
@@ -311,26 +813,22 @@ function drawBoard() {
     rect.setAttribute('x', bx); rect.setAttribute('y', by);
     rect.setAttribute('width', bw); rect.setAttribute('height', bh);
     rect.setAttribute('fill', 'none');
-    rect.setAttribute('stroke', '#5D3A1A');
+    rect.setAttribute('stroke', lineColor);
     rect.setAttribute('stroke-width', 2.5);
     svg.appendChild(rect);
 
-    /* Horizontal lines (10 rows) */
+    /* Horizontal lines */
     for (let r = 0; r < 10; r++) {
-        const y = r * CS + HALF;
-        addLine(HALF, y, 8 * CS + HALF, y);
+        addLine(HALF, r * CS + HALF, 8 * CS + HALF, r * CS + HALF);
     }
-
-    /* Vertical lines — top half (rows 0-4) */
+    /* Vertical lines — top half */
     for (let c = 0; c < 9; c++) {
         addLine(c * CS + HALF, HALF, c * CS + HALF, 4 * CS + HALF);
     }
-
-    /* Vertical lines — bottom half (rows 5-9) */
+    /* Vertical lines — bottom half */
     for (let c = 0; c < 9; c++) {
         addLine(c * CS + HALF, 5 * CS + HALF, c * CS + HALF, 9 * CS + HALF);
     }
-
     /* Edge verticals across river */
     addLine(HALF, 4 * CS + HALF, HALF, 5 * CS + HALF);
     addLine(8 * CS + HALF, 4 * CS + HALF, 8 * CS + HALF, 5 * CS + HALF);
@@ -341,7 +839,7 @@ function drawBoard() {
     addLine(3*CS+HALF, 7*CS+HALF, 5*CS+HALF, 9*CS+HALF);
     addLine(5*CS+HALF, 7*CS+HALF, 3*CS+HALF, 9*CS+HALF);
 
-    /* Star marks at cannon and pawn positions */
+    /* Star marks */
     const stars = [
         [2,1],[2,7],[7,1],[7,7],
         [3,0],[3,2],[3,4],[3,6],[3,8],
@@ -384,7 +882,6 @@ function renderPieces() {
             cell.dataset.col = c;
             cell.addEventListener('click', () => handleClick(r, c));
 
-            /* Highlight last move */
             if (lastMove) {
                 if (r === lastMove.fr && c === lastMove.fc) cell.classList.add('last-from');
                 if (r === lastMove.tr && c === lastMove.tc) cell.classList.add('last-to');
@@ -417,7 +914,7 @@ function renderPieces() {
 }
 
 /* ================================================================
-   Move Generation (Client-Side — mirrors engine.py logic)
+   Move Generation (Client-Side)
    ================================================================ */
 const MA_DELTAS = [
     [-1, 0, -2, -1], [-1, 0, -2, 1],
@@ -522,7 +1019,6 @@ function _genKing(b, r, c, color, moves) {
         const t = b[nr][nc];
         if (!t || t[0] !== color) moves.push([nr, nc]);
     }
-    /* Flying general */
     const targetKing = color === 'b' ? 'r_shuai' : 'b_jiang';
     const step = color === 'b' ? 1 : -1;
     let nr = r + step;
@@ -550,10 +1046,9 @@ function _genBing(b, r, c, color, moves) {
 }
 
 /* ================================================================
-   Legal Move Filtering (no self-check)
+   Legal Move Filtering
    ================================================================ */
 function isInCheck(b, color) {
-    /* Find our king */
     const kingName = color === 'r' ? 'r_shuai' : 'b_jiang';
     let kr = -1, kc = -1;
     for (let r = 0; r < 10; r++) {
@@ -561,7 +1056,7 @@ function isInCheck(b, color) {
             if (b[r][c] === kingName) { kr = r; kc = c; }
         }
     }
-    if (kr < 0) return true; /* King gone = in check */
+    if (kr < 0) return true;
 
     const enemy = color === 'r' ? 'b' : 'r';
     for (let r = 0; r < 10; r++) {
@@ -581,19 +1076,12 @@ function getLegalMoves(b, r, c) {
     const raw = getRawMoves(b, r, c);
     const color = b[r][c][0];
     const legal = [];
-
     for (const [tr, tc] of raw) {
-        /* Make */
         const saved = b[tr][tc];
         const piece = b[r][c];
         b[tr][tc] = piece;
         b[r][c] = null;
-
-        if (!isInCheck(b, color)) {
-            legal.push([tr, tc]);
-        }
-
-        /* Unmake */
+        if (!isInCheck(b, color)) legal.push([tr, tc]);
         b[r][c] = piece;
         b[tr][tc] = saved;
     }
@@ -616,11 +1104,9 @@ function hasAnyLegalMove(b, color) {
    ================================================================ */
 function handleClick(r, c) {
     if (gameOver || currentTurn !== 'r') return;
-
     const piece = board[r][c];
 
     if (selectedPos) {
-        /* Click on valid target → move */
         if (validMoves.some(m => m[0] === r && m[1] === c)) {
             const [fr, fc] = selectedPos;
             saveHistory();
@@ -637,23 +1123,18 @@ function handleClick(r, c) {
             }
             return;
         }
-
-        /* Click another own piece → re-select */
         if (piece && piece[0] === 'r') {
             selectedPos = [r, c];
             validMoves = getLegalMoves(board, r, c);
             renderPieces();
             return;
         }
-
-        /* Click elsewhere → deselect */
         selectedPos = null;
         validMoves = [];
         renderPieces();
         return;
     }
 
-    /* Nothing selected yet → select own piece */
     if (piece && piece[0] === 'r') {
         selectedPos = [r, c];
         validMoves = getLegalMoves(board, r, c);
@@ -662,7 +1143,7 @@ function handleClick(r, c) {
 }
 
 /* ================================================================
-   Move Execution
+   Move Execution (with win tracking)
    ================================================================ */
 function doMove(fr, fc, tr, tc) {
     const captured = board[tr][tc];
@@ -675,6 +1156,11 @@ function doMove(fr, fc, tr, tc) {
             gameOver = true;
             setStatus('红方胜利！');
             showOverlay(false);
+            /* --- Win tracking --- */
+            wins++;
+            updateWinCounter();
+            saveProfile();
+            checkUnlock();
         } else if (captured === 'r_shuai') {
             gameOver = true;
             setStatus('黑方胜利！');
@@ -701,7 +1187,6 @@ async function requestAIMove() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ board }),
         });
-
         const data = await res.json();
         showOverlay(false);
 
@@ -711,7 +1196,7 @@ async function requestAIMove() {
             doMove(from[0], from[1], to[0], to[1]);
             renderPieces();
 
-            const info = `AI: ${data.nodes || '?'} 节点, ${data.time || '?'}s`;
+            const info = 'AI: ' + (data.nodes || '?') + ' 节点, ' + (data.time || '?') + 's';
             document.getElementById('info-bar').textContent = info;
 
             if (!gameOver) {
@@ -728,6 +1213,10 @@ async function requestAIMove() {
         } else {
             gameOver = true;
             setStatus('红方胜利！（AI无子可走）');
+            wins++;
+            updateWinCounter();
+            saveProfile();
+            checkUnlock();
         }
     } catch (err) {
         showOverlay(false);
@@ -751,14 +1240,11 @@ function showOverlay(show) {
 }
 
 function undoMove() {
-    if (history.length < 2 || gameOver) return; /* need to undo player + AI */
-    /* Pop AI move */
+    if (history.length < 2 || gameOver) return;
+    history.pop();
     const prev = history.pop();
-    /* Pop player move */
-    const prev2 = history.pop();
-
-    board = prev2.board;
-    lastMove = prev2.lastMove;
+    board = prev.board;
+    lastMove = prev.lastMove;
     currentTurn = 'r';
     selectedPos = null;
     validMoves = [];
@@ -785,10 +1271,16 @@ function newGame() {
    Init
    ================================================================ */
 function init() {
-    drawBoard();
+    loadProfile();
+    applySkin(currentSkinId);
+    updateWinCounter();
     newGame();
+
     document.getElementById('btn-new').addEventListener('click', newGame);
     document.getElementById('btn-undo').addEventListener('click', undoMove);
+    document.getElementById('btn-skin').addEventListener('click', openSkinPanel);
+    document.getElementById('skin-close').addEventListener('click', closeSkinPanel);
+    document.getElementById('skin-backdrop').addEventListener('click', closeSkinPanel);
 }
 
 window.addEventListener('DOMContentLoaded', init);
