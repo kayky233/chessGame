@@ -843,6 +843,7 @@ h1 {
     }
     .char-select-panel { min-width: auto; width: 94vw; padding: 20px 14px; }
     .char-cards { grid-template-columns: repeat(2, 1fr); }
+    .l2d-canvas-wrap { width: 280px; height: 420px; }
 }
 @media (max-width: 630px) {
     .board-container {
@@ -857,22 +858,31 @@ h1 {
     .char-portrait-area { width: 120px; height: 180px; }
     .char-card-portrait { width: 90px; height: 112px; }
 }
-/* Live2D canvas in portrait area */
+/* Live2D canvas - full left column */
 .l2d-canvas-wrap {
     display: none;
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    z-index: 2;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 420px;
+    height: 620px;
+    z-index: 10;
+    pointer-events: none;
     overflow: hidden;
-    border-radius: 12px;
 }
 .l2d-canvas-wrap canvas {
     width: 100% !important;
     height: 100% !important;
+    pointer-events: auto;
 }
-.char-portrait-area.live2d-active .l2d-canvas-wrap { display: block; }
+.l2d-canvas-wrap.show { display: block; }
+/* When Live2D is active, hide the SVG portrait */
 .char-portrait-area.live2d-active #char-portrait-svg { display: none; }
+.char-portrait-area.live2d-active {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
 </style>
 <!-- Live2D Cubism 3 SDK (CDN from imuncle/live2d) -->
 <script src="https://imuncle.github.io/live2d/live2d_3/js/pixi.min.js"></script>
@@ -888,7 +898,6 @@ h1 {
         <div class="char-panel" id="char-panel">
             <div class="char-portrait-area" id="char-portrait-area">
                 <svg class="char-portrait-svg" id="char-portrait-svg" viewBox="0 0 240 360"></svg>
-                <div class="l2d-canvas-wrap" id="l2d-canvas-wrap"></div>
             </div>
             <div class="char-name-tag" id="char-name-tag"></div>
             <div class="char-stars-tag" id="char-stars-tag"></div>
@@ -1318,7 +1327,7 @@ function createL2DApp() {
     const wrap = document.getElementById('l2d-canvas-wrap');
     if (!wrap) return;
     try {
-        l2dApp = new PIXI.Application(480, 720, { transparent: true });
+        l2dApp = new PIXI.Application(840, 1240, { transparent: true });
         l2dApp.view.style.width = '100%';
         l2dApp.view.style.height = '100%';
         wrap.appendChild(l2dApp.view);
@@ -1484,9 +1493,9 @@ function loadLive2DModel(charId) {
         model.animator.addLayer('base', LIVE2DCUBISMFRAMEWORK.BuiltinAnimationBlenders.OVERRIDE, 1);
         l2dApp.stage.addChild(model);
         l2dApp.stage.addChild(model.masks);
-        // Position and scale to fill portrait area
-        model.position = new PIXI.Point(240, 420);
-        model.scale = new PIXI.Point(18, 18);
+        // Position and scale to fill the large canvas
+        model.position = new PIXI.Point(420, 750);
+        model.scale = new PIXI.Point(30, 30);
         model.masks.resize(l2dApp.view.width, l2dApp.view.height);
         l2dCurrentModel = model;
         l2dCurrentCharId = charId;
@@ -1496,12 +1505,16 @@ function loadLive2DModel(charId) {
 
 function showLive2D() {
     const area = document.getElementById('char-portrait-area');
+    const wrap = document.getElementById('l2d-canvas-wrap');
     if (area) area.classList.add('live2d-active');
+    if (wrap) wrap.classList.add('show');
 }
 
 function hideLive2D() {
     const area = document.getElementById('char-portrait-area');
+    const wrap = document.getElementById('l2d-canvas-wrap');
     if (area) area.classList.remove('live2d-active');
+    if (wrap) wrap.classList.remove('show');
 }
 
 function getDifficulty(id) {
@@ -3268,5 +3281,7 @@ function init() {
 
 window.addEventListener('DOMContentLoaded', init);
 </script>
+<!-- Live2D Canvas (fixed position, bottom-left) -->
+<div class="l2d-canvas-wrap" id="l2d-canvas-wrap"></div>
 </body>
 </html>
