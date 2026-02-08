@@ -1101,7 +1101,7 @@ h1 {
     <!-- Character Layer (left side, full height) -->
     <div class="char-panel" id="char-panel">
         <div class="char-portrait-area" id="char-portrait-area">
-            <svg class="char-portrait-svg" id="char-portrait-svg" viewBox="0 0 420 800"></svg>
+            <svg class="char-portrait-svg" id="char-portrait-svg" viewBox="0 0 320 800"></svg>
             <div class="l2d-canvas-wrap" id="l2d-canvas-wrap"></div>
         </div>
         <div class="char-name-tag" id="char-name-tag"></div>
@@ -1352,78 +1352,156 @@ function isCharacterMode(id) {
     return CHARACTER_IDS.includes(id);
 }
 
-/* ==== SVG Character Portraits ==== */
+/* ==== SVG Character Portraits — Full-Body Galgame Style ==== */
 function drawCharPortrait(svgEl, charId, expression) {
-    // expression: 'normal', 'happy', 'angry'
     const info = CHARACTER_INFO[charId];
     if (!info) { svgEl.innerHTML = ''; return; }
     const c = info.colors;
-    const vb = svgEl.getAttribute('viewBox') || '0 0 240 360';
-    const [,, w, h] = vb.split(' ').map(Number);
-    const cx = w / 2, scale = w / 240;
+    // viewBox: 320 x 800 — narrow and tall for a full-body figure
+    const W = 320, H = 800;
+    const cx = W / 2; // center X = 160
 
-    // Expression-dependent features
-    let eyeShape, mouthShape, blushOpacity = 0;
+    /* ---------- Expression-dependent features ---------- */
+    let eyeL, eyeR, mouth, blushOp = 0;
+    const EY = 195; // eye Y baseline
     if (expression === 'happy') {
-        eyeShape = `<path d="M${80*scale},${135*scale} Q${90*scale},${125*scale} ${100*scale},${135*scale}" stroke="${c.eye}" stroke-width="3" fill="none" stroke-linecap="round"/>
-                    <path d="M${140*scale},${135*scale} Q${150*scale},${125*scale} ${160*scale},${135*scale}" stroke="${c.eye}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
-        mouthShape = `<path d="M${100*scale},${165*scale} Q${cx},${180*scale} ${140*scale},${165*scale}" stroke="#E57373" stroke-width="2" fill="none" stroke-linecap="round"/>`;
-        blushOpacity = 0.4;
+        eyeL = `<path d="M120,${EY} Q132,${EY-12} 144,${EY}" stroke="${c.eye}" stroke-width="3.5" fill="none" stroke-linecap="round"/>`;
+        eyeR = `<path d="M176,${EY} Q188,${EY-12} 200,${EY}" stroke="${c.eye}" stroke-width="3.5" fill="none" stroke-linecap="round"/>`;
+        mouth = `<path d="M145,222 Q${cx},236 175,222" stroke="#E57373" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
+        blushOp = 0.45;
     } else if (expression === 'angry') {
-        eyeShape = `<line x1="${80*scale}" y1="${128*scale}" x2="${100*scale}" y2="${135*scale}" stroke="${c.eye}" stroke-width="3" stroke-linecap="round"/>
-                    <circle cx="${90*scale}" cy="${138*scale}" r="${4*scale}" fill="${c.eye}"/>
-                    <line x1="${160*scale}" y1="${128*scale}" x2="${140*scale}" y2="${135*scale}" stroke="${c.eye}" stroke-width="3" stroke-linecap="round"/>
-                    <circle cx="${150*scale}" cy="${138*scale}" r="${4*scale}" fill="${c.eye}"/>`;
-        mouthShape = `<path d="M${105*scale},${170*scale} Q${cx},${160*scale} ${135*scale},${170*scale}" stroke="#E57373" stroke-width="2" fill="none" stroke-linecap="round"/>`;
-        blushOpacity = 0;
+        eyeL = `<line x1="118" y1="${EY-6}" x2="146" y2="${EY+2}" stroke="${c.eye}" stroke-width="3" stroke-linecap="round"/>
+                 <circle cx="132" cy="${EY+4}" r="5" fill="${c.eye}"/>`;
+        eyeR = `<line x1="202" y1="${EY-6}" x2="174" y2="${EY+2}" stroke="${c.eye}" stroke-width="3" stroke-linecap="round"/>
+                 <circle cx="188" cy="${EY+4}" r="5" fill="${c.eye}"/>`;
+        mouth = `<path d="M148,226 Q${cx},218 172,226" stroke="#E57373" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
+        blushOp = 0;
     } else {
-        // normal
-        eyeShape = `<ellipse cx="${90*scale}" cy="${136*scale}" rx="${5*scale}" ry="${6*scale}" fill="${c.eye}"/>
-                    <ellipse cx="${150*scale}" cy="${136*scale}" rx="${5*scale}" ry="${6*scale}" fill="${c.eye}"/>
-                    <circle cx="${88*scale}" cy="${134*scale}" r="${2*scale}" fill="#fff" opacity="0.8"/>
-                    <circle cx="${148*scale}" cy="${134*scale}" r="${2*scale}" fill="#fff" opacity="0.8"/>`;
-        mouthShape = `<path d="M${108*scale},${165*scale} Q${cx},${172*scale} ${132*scale},${165*scale}" stroke="#E57373" stroke-width="1.5" fill="none"/>`;
-        blushOpacity = 0.15;
+        // normal — large anime eyes
+        eyeL = `<ellipse cx="132" cy="${EY}" rx="8" ry="10" fill="${c.eye}"/>
+                 <ellipse cx="132" cy="${EY-2}" rx="4" ry="5" fill="#fff" opacity="0.3"/>
+                 <circle cx="128" cy="${EY-4}" r="3" fill="#fff" opacity="0.85"/>`;
+        eyeR = `<ellipse cx="188" cy="${EY}" rx="8" ry="10" fill="${c.eye}"/>
+                 <ellipse cx="188" cy="${EY-2}" rx="4" ry="5" fill="#fff" opacity="0.3"/>
+                 <circle cx="184" cy="${EY-4}" r="3" fill="#fff" opacity="0.85"/>`;
+        mouth = `<path d="M150,224 Q${cx},230 170,224" stroke="#E57373" stroke-width="1.8" fill="none"/>`;
+        blushOp = 0.2;
     }
 
     svgEl.innerHTML = `
-        <!-- Background gradient -->
-        <defs>
-            <linearGradient id="bg-grad-${charId}" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="${c.accent}" stop-opacity="0.15"/>
-                <stop offset="100%" stop-color="${c.accent}" stop-opacity="0.03"/>
-            </linearGradient>
-            <radialGradient id="hair-grad-${charId}" cx="50%" cy="30%">
-                <stop offset="0%" stop-color="${c.hair}" stop-opacity="0.9"/>
-                <stop offset="100%" stop-color="${c.hair}" stop-opacity="0.6"/>
-            </radialGradient>
-        </defs>
-        <rect width="${w}" height="${h}" fill="url(#bg-grad-${charId})" rx="14"/>
-        <!-- Body / Dress -->
-        <ellipse cx="${cx}" cy="${h + 20*scale}" rx="${80*scale}" ry="${110*scale}" fill="${c.dress}" opacity="0.85"/>
-        <ellipse cx="${cx}" cy="${h - 30*scale}" rx="${55*scale}" ry="${40*scale}" fill="${c.dress}" opacity="0.9"/>
-        <!-- Neck -->
-        <rect x="${cx - 12*scale}" y="${185*scale}" width="${24*scale}" height="${30*scale}" rx="${8*scale}" fill="${c.skin}"/>
-        <!-- Face -->
-        <ellipse cx="${cx}" cy="${135*scale}" rx="${48*scale}" ry="${55*scale}" fill="${c.skin}"/>
-        <!-- Hair (back) -->
-        <ellipse cx="${cx}" cy="${100*scale}" rx="${56*scale}" ry="${50*scale}" fill="url(#hair-grad-${charId})"/>
-        <!-- Bangs -->
-        <path d="M${(cx-52*scale)},${115*scale} Q${(cx-30*scale)},${70*scale} ${cx},${75*scale} Q${(cx+30*scale)},${70*scale} ${(cx+52*scale)},${115*scale}" fill="${c.hair}"/>
-        <!-- Side hair -->
-        <ellipse cx="${(cx-45*scale)}" cy="${145*scale}" rx="${14*scale}" ry="${40*scale}" fill="${c.hair}" opacity="0.7"/>
-        <ellipse cx="${(cx+45*scale)}" cy="${145*scale}" rx="${14*scale}" ry="${40*scale}" fill="${c.hair}" opacity="0.7"/>
-        <!-- Eyes -->
-        ${eyeShape}
-        <!-- Blush -->
-        <ellipse cx="${78*scale}" cy="${150*scale}" rx="${10*scale}" ry="${5*scale}" fill="#FF8A80" opacity="${blushOpacity}"/>
-        <ellipse cx="${162*scale}" cy="${150*scale}" rx="${10*scale}" ry="${5*scale}" fill="#FF8A80" opacity="${blushOpacity}"/>
-        <!-- Mouth -->
-        ${mouthShape}
-        <!-- Decorative sparkles -->
-        <circle cx="${30*scale}" cy="${40*scale}" r="2" fill="${c.accent}" opacity="0.5"/>
-        <circle cx="${200*scale}" cy="${60*scale}" r="1.5" fill="${c.accent}" opacity="0.4"/>
-        <circle cx="${45*scale}" cy="${300*scale}" r="2" fill="${c.accent}" opacity="0.3"/>
+    <defs>
+        <radialGradient id="hg-${charId}" cx="50%" cy="25%" r="60%">
+            <stop offset="0%" stop-color="${c.hair}" stop-opacity="1"/>
+            <stop offset="100%" stop-color="${c.hair}" stop-opacity="0.55"/>
+        </radialGradient>
+        <linearGradient id="dg-${charId}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${c.dress}"/>
+            <stop offset="100%" stop-color="${c.dress}" stop-opacity="0.6"/>
+        </linearGradient>
+        <!-- Glow filter for the accent sparkles -->
+        <filter id="glow-${charId}">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+    </defs>
+
+    <!-- ===== BACK HAIR (long, flowing behind the body) ===== -->
+    <!-- Left flowing strand -->
+    <path d="M90,140 Q60,300 55,500 Q50,650 70,810" stroke="none" fill="${c.hair}" opacity="0.35"/>
+    <!-- Right flowing strand -->
+    <path d="M230,140 Q260,300 265,500 Q270,650 250,810" stroke="none" fill="${c.hair}" opacity="0.35"/>
+    <!-- Center back -->
+    <ellipse cx="${cx}" cy="250" rx="75" ry="140" fill="${c.hair}" opacity="0.25"/>
+
+    <!-- ===== BODY / DRESS ===== -->
+    <!-- Skirt — trapezoid, flowing to ankles -->
+    <path d="M105,380 Q90,520 75,720 L80,810 L240,810 L245,720 Q230,520 215,380 Z"
+          fill="url(#dg-${charId})" opacity="0.9"/>
+    <!-- Skirt folds -->
+    <path d="M130,400 Q125,550 115,750" stroke="${c.dress}" stroke-width="1" fill="none" opacity="0.3"/>
+    <path d="M190,400 Q195,550 205,750" stroke="${c.dress}" stroke-width="1" fill="none" opacity="0.3"/>
+    <path d="M${cx},390 L${cx},780" stroke="${c.dress}" stroke-width="0.8" fill="none" opacity="0.2"/>
+
+    <!-- Waist sash / belt -->
+    <ellipse cx="${cx}" cy="378" rx="58" ry="14" fill="${c.accent}" opacity="0.5"/>
+    <ellipse cx="${cx}" cy="378" rx="55" ry="10" fill="${c.accent}" opacity="0.35"/>
+
+    <!-- Upper body / torso -->
+    <path d="M118,270 Q110,320 108,375 L212,375 Q210,320 202,270 Z"
+          fill="${c.dress}" opacity="0.95"/>
+    <!-- Collar / neckline -->
+    <path d="M128,270 L${cx},300 L192,270" stroke="${c.skin}" stroke-width="2" fill="${c.skin}" opacity="0.5"/>
+
+    <!-- Shoulders & upper arms -->
+    <!-- Left arm -->
+    <path d="M118,275 Q95,290 82,340 Q78,360 85,380"
+          stroke="${c.skin}" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.95"/>
+    <!-- Left sleeve -->
+    <path d="M118,275 Q100,285 90,320 Q85,340 92,360"
+          stroke="${c.dress}" stroke-width="18" fill="none" stroke-linecap="round" opacity="0.7"/>
+    <!-- Right arm -->
+    <path d="M202,275 Q225,290 238,340 Q242,360 235,380"
+          stroke="${c.skin}" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.95"/>
+    <!-- Right sleeve -->
+    <path d="M202,275 Q220,285 230,320 Q235,340 228,360"
+          stroke="${c.dress}" stroke-width="18" fill="none" stroke-linecap="round" opacity="0.7"/>
+
+    <!-- ===== NECK ===== -->
+    <rect x="148" y="245" width="24" height="30" rx="10" fill="${c.skin}"/>
+
+    <!-- ===== FACE ===== -->
+    <ellipse cx="${cx}" cy="192" rx="56" ry="65" fill="${c.skin}"/>
+
+    <!-- ===== HAIR ===== -->
+    <!-- Main hair volume -->
+    <ellipse cx="${cx}" cy="150" rx="66" ry="62" fill="url(#hg-${charId})"/>
+    <!-- Bangs -->
+    <path d="M92,165 Q108,105 ${cx},110 Q212,105 228,165"
+          fill="${c.hair}"/>
+    <!-- Fringe detail -->
+    <path d="M110,160 Q130,120 ${cx},125 Q190,120 210,160"
+          fill="${c.hair}" opacity="0.7"/>
+    <!-- Side hair — left -->
+    <path d="M95,160 Q80,220 78,300 Q76,350 82,400"
+          stroke="${c.hair}" stroke-width="22" fill="none" stroke-linecap="round" opacity="0.65"/>
+    <!-- Side hair — right -->
+    <path d="M225,160 Q240,220 242,300 Q244,350 238,400"
+          stroke="${c.hair}" stroke-width="22" fill="none" stroke-linecap="round" opacity="0.65"/>
+
+    <!-- ===== EYES ===== -->
+    <!-- Eyelash lines -->
+    <path d="M118,${EY-8} Q132,${EY-14} 146,${EY-8}" stroke="${c.eye}" stroke-width="1.5" fill="none" opacity="0.5"/>
+    <path d="M174,${EY-8} Q188,${EY-14} 202,${EY-8}" stroke="${c.eye}" stroke-width="1.5" fill="none" opacity="0.5"/>
+    ${eyeL}
+    ${eyeR}
+
+    <!-- ===== BLUSH ===== -->
+    <ellipse cx="118" cy="210" rx="12" ry="6" fill="#FF8A80" opacity="${blushOp}"/>
+    <ellipse cx="202" cy="210" rx="12" ry="6" fill="#FF8A80" opacity="${blushOp}"/>
+
+    <!-- ===== MOUTH ===== -->
+    ${mouth}
+
+    <!-- ===== ACCESSORIES / SPARKLES ===== -->
+    <!-- Hair accessory -->
+    <circle cx="200" cy="135" r="6" fill="${c.accent}" opacity="0.7" filter="url(#glow-${charId})"/>
+    <circle cx="195" cy="128" r="3" fill="${c.accent}" opacity="0.5"/>
+    <!-- Floating sparkles for magical feel -->
+    <circle cx="50" cy="100" r="2.5" fill="${c.accent}" opacity="0.5" filter="url(#glow-${charId})">
+        <animate attributeName="opacity" values="0.5;0.15;0.5" dur="3s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="270" cy="200" r="2" fill="${c.accent}" opacity="0.4" filter="url(#glow-${charId})">
+        <animate attributeName="opacity" values="0.4;0.1;0.4" dur="4s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="40" cy="450" r="3" fill="${c.accent}" opacity="0.35" filter="url(#glow-${charId})">
+        <animate attributeName="opacity" values="0.35;0.1;0.35" dur="3.5s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="280" cy="550" r="2" fill="${c.accent}" opacity="0.3">
+        <animate attributeName="opacity" values="0.3;0.05;0.3" dur="5s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="60" cy="680" r="2.5" fill="${c.accent}" opacity="0.25">
+        <animate attributeName="opacity" values="0.25;0.05;0.25" dur="4.5s" repeatCount="indefinite"/>
+    </circle>
     `;
 }
 
@@ -1450,7 +1528,7 @@ function renderCharCards() {
         const card = document.createElement('div');
         card.className = 'char-card' + (isActive ? ' active' : '');
         card.innerHTML = `
-            <div class="char-card-portrait"><svg viewBox="0 0 120 150"></svg></div>
+            <div class="char-card-portrait"><svg viewBox="0 0 320 800"></svg></div>
             <div class="char-card-name">${info.name}</div>
             <div class="char-card-stars">${'★'.repeat(info.stars)}${'☆'.repeat(maxStars - info.stars)}</div>
             <div class="char-card-desc">${info.desc}</div>
