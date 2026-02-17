@@ -488,3 +488,22 @@ LLM 启用状态。返回 `{"enabled": true, "model": "deepseek-chat"}`。
 本项目为个人学习项目。  
 Live2D 模型来源：[imuncle/live2d](https://github.com/niconi233/live2d_demo)，模型版权归原作者所有。  
 碧蓝航线角色版权归 Manjuu/Yongshi/Yostar 所有，本项目仅用于学习交流。
+
+---
+
+## 2026-02 Ops Notes
+
+For production stability and global online-count accuracy:
+
+- `REDIS_URL` (or `PRESENCE_REDIS_URL`): enable Redis-backed heartbeat counting across workers.
+- `PRESENCE_REDIS_KEY` (default: `chess:presence:online`): Redis sorted-set key for presence.
+- `HEARTBEAT_TIMEOUT_SEC` (default: `10`): heartbeat offline timeout.
+- `AI_MOVE_TIME_LIMIT_SEC` (default: `8`): hard wall-clock limit for one AI move search.
+- `AI_MOVE_DEPTH5_LIMIT_SEC` (default: `3.5`): stricter cap for depth-5 mode to improve responsiveness.
+- `AI_MOVE_LLM_DIALOGUE` (default: `0`): when `0`, `/ai-move` uses local dialogue only (faster, no external API wait).
+
+If users report "one move hangs for minutes", check:
+
+1. `/stats` -> `active_ai_requests` and `ai_move_time_limit_sec`.
+2. Gunicorn worker count/timeout settings.
+3. Whether LLM streaming calls are saturating sync workers.

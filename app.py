@@ -20,6 +20,11 @@ import os
 import random
 import json
 
+try:
+    import redis  # type: ignore
+except Exception:  # pragma: no cover
+    redis = None
+
 app = Flask(__name__)
 CORS(app)
 
@@ -107,6 +112,94 @@ class Metrics:
 
 limiter = RateLimiter(max_requests=10, window_sec=10)
 metrics = Metrics()
+
+# ================================================================
+# Presence / Online Users (Redis preferred, memory fallback)
+# ================================================================
+HEARTBEAT_TIMEOUT = int(os.environ.get('HEARTBEAT_TIMEOUT_SEC', '10'))
+PRESENCE_REDIS_URL = (
+    os.environ.get('PRESENCE_REDIS_URL')
+    or os.environ.get('REDIS_URL')
+    or ''
+).strip()
+PRESENCE_REDIS_KEY = os.environ.get('PRESENCE_REDIS_KEY', 'chess:presence:online')
+
+
+class LocalPresenceStore:
+    """In-process fallback presence store (not cross-worker accurate)."""
+
+    def __init__(self, timeout_sec):
+        self.timeout_sec = timeout_sec
+        self.users = {}  # uid -> last_active_timestamp
+        self.lock = threading.Lock()
+
+    def heartbeat(self, uid, now_ts):
+        with self.lock:
+            if uid:
+                self.users[uid] = now_ts
+
+            stale_ids = [
+                user_id for user_id, last_seen in self.users.items()
+                if now_ts - last_seen > self.timeout_sec
+            ]
+            for user_id in stale_ids:
+                del self.users[user_id]
+            return len(self.users)
+
+
+class RedisPresenceStore:
+    """Cross-worker accurate presence store backed by Redis sorted-set."""
+
+    def __init__(self, client, key, timeout_sec):
+        self.client = client
+        self.key = key
+        self.timeout_sec = timeout_sec
+        self.ttl_sec = max(timeout_sec * 3, 30)
+
+    def heartbeat(self, uid, now_ts):
+        cutoff = now_ts - self.timeout_sec
+        pipe = self.client.pipeline(transaction=True)
+        if uid:
+            pipe.zadd(self.key, {uid: now_ts})
+        pipe.zremrangebyscore(self.key, 0, cutoff)
+        pipe.zcard(self.key)
+        pipe.expire(self.key, self.ttl_sec)
+        results = pipe.execute()
+        return int(results[-2])  # zcard result (works with/without zadd)
+
+
+presence_store = LocalPresenceStore(HEARTBEAT_TIMEOUT)
+presence_store_mode = 'memory'
+presence_fallback_store = LocalPresenceStore(HEARTBEAT_TIMEOUT)
+
+if PRESENCE_REDIS_URL:
+    if redis is None:
+        app.logger.warning(
+            'Redis URL configured but redis package is unavailable, fallback to memory presence.'
+        )
+    else:
+        try:
+            redis_client = redis.Redis.from_url(
+                PRESENCE_REDIS_URL,
+                decode_responses=True,
+                socket_connect_timeout=1.5,
+                socket_timeout=1.5,
+                retry_on_timeout=False,
+                health_check_interval=30,
+            )
+            redis_client.ping()
+            presence_store = RedisPresenceStore(
+                redis_client,
+                PRESENCE_REDIS_KEY,
+                HEARTBEAT_TIMEOUT,
+            )
+            presence_store_mode = 'redis'
+            app.logger.info('Presence store initialized: redis key=%s', PRESENCE_REDIS_KEY)
+        except Exception as exc:
+            app.logger.warning(
+                'Failed to init Redis presence store, fallback to memory: %s',
+                exc,
+            )
 
 
 # ================================================================
@@ -428,6 +521,23 @@ LLM_API_KEY = os.environ.get('LLM_API_KEY', '')
 LLM_API_URL = os.environ.get('LLM_API_URL', 'https://api.deepseek.com/chat/completions')
 LLM_MODEL = os.environ.get('LLM_MODEL', 'deepseek-chat')
 LLM_ENABLED = bool(LLM_API_KEY)
+AI_MOVE_LLM_DIALOGUE = os.environ.get('AI_MOVE_LLM_DIALOGUE', '').strip().lower() in {
+    '1', 'true', 'yes', 'on'
+}
+
+try:
+    AI_MOVE_TIME_LIMIT_SEC = float(os.environ.get('AI_MOVE_TIME_LIMIT_SEC', '8'))
+except ValueError:
+    AI_MOVE_TIME_LIMIT_SEC = 8.0
+if AI_MOVE_TIME_LIMIT_SEC <= 0:
+    AI_MOVE_TIME_LIMIT_SEC = None
+
+try:
+    AI_MOVE_DEPTH5_LIMIT_SEC = float(os.environ.get('AI_MOVE_DEPTH5_LIMIT_SEC', '3.5'))
+except ValueError:
+    AI_MOVE_DEPTH5_LIMIT_SEC = 3.5
+if AI_MOVE_DEPTH5_LIMIT_SEC <= 0:
+    AI_MOVE_DEPTH5_LIMIT_SEC = None
 
 def get_character(char_id):
     """Get character config, fallback to shokaku."""
@@ -438,6 +548,15 @@ def get_dialogue(char_id, event):
     char = get_character(char_id)
     lines = char['dialogues'].get(event, [])
     return random.choice(lines) if lines else ''
+
+
+def get_ai_move_dialogue(char_id, event):
+    """Fast dialogue path for /ai-move: local by default, LLM optional."""
+    if not char_id:
+        return ''
+    if AI_MOVE_LLM_DIALOGUE and LLM_ENABLED:
+        return get_llm_dialogue(char_id, event) or get_dialogue(char_id, event)
+    return get_dialogue(char_id, event)
 
 def get_llm_dialogue(char_id, event):
     """Call LLM API for a dynamic dialogue line. Returns string or None on failure."""
@@ -556,6 +675,31 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/api/heartbeat', methods=['POST'])
+def heartbeat():
+    """Update online heartbeat and return online count."""
+    data = request.get_json(silent=True) or {}
+    raw_uid = data.get('uid')
+    uid = str(raw_uid).strip()[:64] if raw_uid is not None else ''
+    now = time.time()
+
+    try:
+        online_count = presence_store.heartbeat(uid, now)
+    except Exception as exc:
+        app.logger.warning(
+            'Heartbeat presence error (%s), fallback to local memory: %s',
+            presence_store_mode,
+            exc,
+        )
+        online_count = presence_fallback_store.heartbeat(uid, now)
+
+    return jsonify({
+        'status': 'ok',
+        'online_count': online_count,
+        'mode': presence_store_mode,
+    })
+
+
 @app.route('/ai-move', methods=['POST'])
 def ai_move():
     """
@@ -605,31 +749,50 @@ def ai_move():
     else:
         depth = data.get('depth', 4)
     depth = max(1, min(depth, 6))  # Clamp to safe range
+    move_time_limit = AI_MOVE_TIME_LIMIT_SEC
+    if depth >= 5 and AI_MOVE_DEPTH5_LIMIT_SEC is not None:
+        if move_time_limit is None:
+            move_time_limit = AI_MOVE_DEPTH5_LIMIT_SEC
+        else:
+            move_time_limit = min(move_time_limit, AI_MOVE_DEPTH5_LIMIT_SEC)
+    app.logger.info(
+        'ai_move start ip=%s char=%s depth=%s time_limit=%s pid=%s',
+        client_ip,
+        char_id or '-',
+        depth,
+        f'{move_time_limit:.2f}s' if move_time_limit else 'unlimited',
+        os.getpid(),
+    )
 
     metrics.ai_start()
     t0 = time.time()
     try:
-        engine = XiangqiEngine(depth=depth)
+        engine = XiangqiEngine(depth=depth, time_limit_sec=move_time_limit)
         move = engine.get_best_move(board)
     finally:
         dt = time.time() - t0
         metrics.ai_end(dt)
 
     if move is None:
-        return jsonify({
+        response = jsonify({
             'status': 'ok',
             'move': None,
             'message': 'No valid moves for AI',
             'time': round(dt, 3),
+            'search_timed_out': engine.timed_out,
             'event': 'lose',
-            'dialogue': (get_llm_dialogue(char_id, 'lose') or get_dialogue(char_id, 'lose')) if char_id else '',
+            'dialogue': get_ai_move_dialogue(char_id, 'lose'),
         })
+        response.headers['Cache-Control'] = 'no-store'
+        response.headers['X-AI-Time'] = str(round(dt, 3))
+        response.headers['X-Worker-Pid'] = str(os.getpid())
+        return response
 
     fr, fc, tr, tc = move
     captured = board[tr][tc] if board[tr][tc] else None
     event = 'capture' if captured else 'move'
 
-    return jsonify({
+    response = jsonify({
         'status': 'ok',
         'move': {
             'from': [fr, fc],
@@ -637,9 +800,14 @@ def ai_move():
         },
         'time': round(dt, 3),
         'nodes': engine.nodes,
+        'search_timed_out': engine.timed_out,
         'event': event,
-        'dialogue': ((get_llm_dialogue(char_id, event) or get_dialogue(char_id, event)) if char_id and event != 'move' else ''),
+        'dialogue': (get_ai_move_dialogue(char_id, event) if char_id and event != 'move' else ''),
     })
+    response.headers['Cache-Control'] = 'no-store'
+    response.headers['X-AI-Time'] = str(round(dt, 3))
+    response.headers['X-Worker-Pid'] = str(os.getpid())
+    return response
 
 
 @app.route('/dialogue', methods=['POST'])
@@ -691,7 +859,12 @@ def dialogue_stream():
 @app.route('/stats')
 def stats():
     """Server metrics endpoint for monitoring."""
-    return jsonify(metrics.snapshot())
+    data = metrics.snapshot()
+    data['presence_mode'] = presence_store_mode
+    data['ai_move_time_limit_sec'] = AI_MOVE_TIME_LIMIT_SEC
+    data['ai_move_depth5_limit_sec'] = AI_MOVE_DEPTH5_LIMIT_SEC
+    data['ai_move_llm_dialogue'] = AI_MOVE_LLM_DIALOGUE
+    return jsonify(data)
 
 
 @app.route('/health')
@@ -706,6 +879,7 @@ def llm_status():
     return jsonify({
         'enabled': LLM_ENABLED,
         'model': LLM_MODEL if LLM_ENABLED else None,
+        'ai_move_llm_dialogue': AI_MOVE_LLM_DIALOGUE,
     })
 
 

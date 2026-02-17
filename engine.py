@@ -105,12 +105,24 @@ ORTHO = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 DIAG = [(-1, -1), (-1, 1), (1, -1), (1, 1)]
 
 
+class SearchTimeout(Exception):
+    """Raised when the search exceeds its wall-clock budget."""
+
+
 class XiangqiEngine:
     """Chinese Chess AI Engine with Alpha-Beta Pruning and Make/Unmake."""
 
-    def __init__(self, depth=4):
+    def __init__(self, depth=4, time_limit_sec=None):
         self.depth = depth
         self.nodes = 0
+        self.time_limit_sec = time_limit_sec if time_limit_sec and time_limit_sec > 0 else None
+        self.deadline = None
+        self.timed_out = False
+
+    def _check_timeout(self):
+        if self.deadline is not None and time.time() >= self.deadline:
+            self.timed_out = True
+            raise SearchTimeout()
 
     # ============================================================
     # Evaluation
@@ -348,6 +360,7 @@ class XiangqiEngine:
         Uses Make/Unmake pattern — board is modified in-place and restored.
         Returns score from the current player's perspective.
         """
+        self._check_timeout()
         self.nodes += 1
 
         if depth == 0:
@@ -365,24 +378,24 @@ class XiangqiEngine:
         best = -999999
 
         for fr, fc, tr, tc in moves:
+            self._check_timeout()
+
             # === MAKE MOVE ===
             captured = board[tr][tc]
             piece = board[fr][fc]
             board[tr][tc] = piece
             board[fr][fc] = None
 
-            # If we captured the enemy king, instant win
-            if captured is not None and captured[2:] in ('jiang', 'shuai'):
-                # === UNMAKE ===
+            try:
+                # If we captured the enemy king, instant win
+                if captured is not None and captured[2:] in ('jiang', 'shuai'):
+                    return 99999 - (self.depth - depth)
+
+                val = -self._search(board, depth - 1, -beta, -alpha, not is_black)
+            finally:
+                # === UNMAKE MOVE ===
                 board[fr][fc] = piece
                 board[tr][tc] = captured
-                return 99999 - (self.depth - depth)
-
-            val = -self._search(board, depth - 1, -beta, -alpha, not is_black)
-
-            # === UNMAKE MOVE ===
-            board[fr][fc] = piece
-            board[tr][tc] = captured
 
             if val > best:
                 best = val
@@ -404,7 +417,11 @@ class XiangqiEngine:
         Board is guaranteed to be unchanged after this call (Make/Unmake).
         """
         self.nodes = 0
+        self.timed_out = False
         t0 = time.time()
+        self.deadline = (
+            t0 + self.time_limit_sec if self.time_limit_sec is not None else None
+        )
 
         moves = self.gen_moves(board, 'b')
         if not moves:
@@ -418,26 +435,33 @@ class XiangqiEngine:
         beta = 999999
 
         for fr, fc, tr, tc in moves:
+            try:
+                self._check_timeout()
+            except SearchTimeout:
+                break
+
             # === MAKE ===
             captured = board[tr][tc]
             piece = board[fr][fc]
             board[tr][tc] = piece
             board[fr][fc] = None
 
-            # Instant win: captured the red king
-            if captured is not None and captured[2:] in ('jiang', 'shuai'):
+            try:
+                # Instant win: captured the red king
+                if captured is not None and captured[2:] in ('jiang', 'shuai'):
+                    dt = time.time() - t0
+                    print(f"[Engine] depth={self.depth} nodes={self.nodes} "
+                          f"time={dt:.3f}s (king capture)")
+                    return (fr, fc, tr, tc)
+
+                val = -self._search(board, self.depth - 1, -beta, -alpha, False)
+            except SearchTimeout:
+                self.timed_out = True
+                break
+            finally:
+                # === UNMAKE ===
                 board[fr][fc] = piece
                 board[tr][tc] = captured
-                dt = time.time() - t0
-                print(f"[Engine] depth={self.depth} nodes={self.nodes} "
-                      f"time={dt:.3f}s (king capture)")
-                return (fr, fc, tr, tc)
-
-            val = -self._search(board, self.depth - 1, -beta, -alpha, False)
-
-            # === UNMAKE ===
-            board[fr][fc] = piece
-            board[tr][tc] = captured
 
             if val > best_val:
                 best_val = val
@@ -446,6 +470,10 @@ class XiangqiEngine:
                 alpha = val
 
         dt = time.time() - t0
-        print(f"[Engine] depth={self.depth} nodes={self.nodes} "
-              f"time={dt:.3f}s eval={best_val}")
+        if self.timed_out:
+            print(f"[Engine] depth={self.depth} nodes={self.nodes} "
+                  f"time={dt:.3f}s eval={best_val} (timeout)")
+        else:
+            print(f"[Engine] depth={self.depth} nodes={self.nodes} "
+                  f"time={dt:.3f}s eval={best_val}")
         return best_move

@@ -253,6 +253,41 @@ body {
     transform-origin: center center;
 }
 
+/* Online users badge */
+.online-badge {
+    position: absolute;
+    top: 42px;
+    left: 16px;
+    z-index: 62;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(76, 175, 80, 0.35);
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: #87f59a;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.online-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4caf50;
+    box-shadow: 0 0 8px rgba(76, 175, 80, 0.9);
+    animation: onlinePulse 1.8s infinite;
+}
+@keyframes onlinePulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.8); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
 /* ============================================================
    Top-right toolbar — absolute within #game-stage
    ============================================================ */
@@ -323,6 +358,17 @@ body {
     color: #fff;
     border-color: rgba(255,255,255,0.3);
     transform: scale(1.1);
+}
+#btn-puzzle-retry {
+    display: none;
+    width: auto;
+    min-width: 74px;
+    padding: 0 14px;
+    border-radius: 18px;
+    font-size: 13px;
+}
+#btn-puzzle-retry.show {
+    display: flex;
 }
 
 /* Status + info */
@@ -1035,6 +1081,8 @@ h1 {
     /* --- Toolbar --- */
     .toolbar-top { top: 6px; right: 8px; gap: 5px; }
     .toolbar-btn { width: 32px; height: 32px; font-size: 14px; }
+    .online-badge { top: 40px; left: 8px; font-size: 11px; padding: 4px 10px; gap: 6px; }
+    .online-dot { width: 7px; height: 7px; }
 
     /* --- Title --- */
     h1 { font-size: 12px; top: 8px; left: 10px; }
@@ -1337,6 +1385,11 @@ body.admin-mode .char-card {
     <!-- Title — subtle top-left -->
     <h1>中国象棋</h1>
 
+    <div class="online-badge" id="online-badge">
+        <span class="online-dot"></span>
+        <span>当前在线: <span id="online-count-num">-</span> 人</span>
+    </div>
+
     <!-- Top-right toolbar (settings) -->
     <div class="toolbar-top">
         <button class="toolbar-btn" id="btn-char" title="角色">&#x1F464;</button>
@@ -1379,6 +1432,7 @@ body.admin-mode .char-card {
         <div class="game-actions">
             <button class="action-btn" id="btn-new" title="新局">新</button>
             <button class="action-btn" id="btn-undo" title="悔棋">悔</button>
+            <button class="action-btn" id="btn-puzzle-retry" title="重新挑战">重试</button>
         </div>
         <div class="info-bar" id="info-bar"></div>
     </div>
@@ -1783,6 +1837,14 @@ function drawCharPortrait(svgEl, charId, expression) {
     // viewBox: 320 x 800 — narrow and tall for a full-body figure
     const W = 320, H = 800;
     const cx = W / 2; // center X = 160
+    // Chibi ratio tuning for non-Live2D SVG portraits
+    const bodyScaleX = 0.90;
+    const bodyScaleY = 0.78;
+    const bodyPivotY = 380;
+    const bodyTransform = `translate(${cx} ${bodyPivotY}) scale(${bodyScaleX} ${bodyScaleY}) translate(${-cx} ${-bodyPivotY})`;
+    const headScale = 1.22;
+    const headPivotY = 192;
+    const headTransform = `translate(${cx} ${headPivotY}) scale(${headScale}) translate(${-cx} ${-headPivotY})`;
 
     /* ---------- Expression-dependent features ---------- */
     let eyeL, eyeR, mouth, blushOp = 0;
@@ -1828,6 +1890,7 @@ function drawCharPortrait(svgEl, charId, expression) {
         </filter>
     </defs>
 
+    <g transform="${bodyTransform}">
     <!-- ===== BACK HAIR (long, flowing behind the body) ===== -->
     <!-- Left flowing strand -->
     <path d="M90,140 Q60,300 55,500 Q50,650 70,810" stroke="none" fill="${c.hair}" opacity="0.35"/>
@@ -1872,6 +1935,8 @@ function drawCharPortrait(svgEl, charId, expression) {
     <!-- ===== NECK ===== -->
     <rect x="148" y="245" width="24" height="30" rx="10" fill="${c.skin}"/>
 
+    </g>
+    <g transform="${headTransform}">
     <!-- ===== FACE ===== -->
     <ellipse cx="${cx}" cy="192" rx="56" ry="65" fill="${c.skin}"/>
 
@@ -1909,6 +1974,7 @@ function drawCharPortrait(svgEl, charId, expression) {
     <!-- Hair accessory -->
     <circle cx="200" cy="135" r="6" fill="${c.accent}" opacity="0.7" filter="url(#glow-${charId})"/>
     <circle cx="195" cy="128" r="3" fill="${c.accent}" opacity="0.5"/>
+    </g>
     <!-- Floating sparkles for magical feel -->
     <circle cx="50" cy="100" r="2.5" fill="${c.accent}" opacity="0.5" filter="url(#glow-${charId})">
         <animate attributeName="opacity" values="0.5;0.15;0.5" dur="3s" repeatCount="indefinite"/>
@@ -3146,6 +3212,20 @@ function closePuzzlePanel() {
     document.getElementById('puzzle-backdrop').classList.remove('show');
 }
 
+function setPuzzleRetryVisible(show) {
+    const btn = document.getElementById('btn-puzzle-retry');
+    if (!btn) return;
+    btn.classList.toggle('show', !!show);
+}
+
+function retryCurrentPuzzle() {
+    invalidateAIRequests();
+    if (!puzzleId) return;
+    const current = PUZZLES.find(p => p.id === puzzleId);
+    if (!current) return;
+    startPuzzle(current);
+}
+
 function renderPuzzleList() {
     const list = document.getElementById('puzzle-list');
     if (!list) return;
@@ -3205,11 +3285,13 @@ function renderPuzzleList() {
 }
 
 function startPuzzle(puzzle) {
+    invalidateAIRequests();
     puzzleActive = true;
     puzzleId = puzzle.id;
     puzzleMoves = 0;
     puzzleMaxMoves = puzzle.maxMoves;
     puzzleSide = puzzle.side || 'r';
+    setPuzzleRetryVisible(false);
     document.getElementById('info-bar').textContent = '提示: ' + (puzzle.hint || '暂无');
     board = puzzle.board.map(row => [...row]);
     selectedPos = null;
@@ -3285,6 +3367,17 @@ let puzzleId = null;
 let puzzleMoves = 0;
 let puzzleMaxMoves = 0;
 let puzzleSide = 'r';
+let heartbeatTimer = null;
+let heartbeatUid = '';
+let aiRequestToken = 0;
+let aiThinkingTimer = null;
+let aiThinkingStartTs = 0;
+let aiThinkingBaseStatus = '';
+
+const HEARTBEAT_INTERVAL_MS = 5000;
+const HEARTBEAT_TIMEOUT_MS = 3500;
+const AI_REQUEST_TIMEOUT_MS = 30000;
+const AI_REQUEST_RETRIES = 3;
 
 /* ================================================================
    Board Drawing (SVG) — reads skin colors
@@ -3646,15 +3739,15 @@ function handleClick(r, c) {
                 }
             }
 
+            if (puzzleActive) {
+                afterPuzzleMove();
+                return;
+            }
             if (!gameOver) {
-                if (puzzleActive) {
-                    afterPuzzleMove();
-                    return;
-                }
                 currentTurn = 'b';
                 setStatus('AI 思考中...');
                 showOverlay(true);
-                setTimeout(requestAIMove, 50);
+                queueAIMoveRequest();
             }
             return;
         }
@@ -3713,6 +3806,7 @@ function afterPuzzleMove() {
     const targetKing = puzzleSide === 'r' ? 'b_jiang' : 'r_shuai';
 
     if (gameOver && lastCapturedPiece === targetKing) {
+            setPuzzleRetryVisible(false);
             setStatus('残局成功！');
             document.getElementById('info-bar').textContent = '通关完成';
             markPuzzleCleared(puzzleId, puzzleMoves);
@@ -3735,6 +3829,7 @@ function afterPuzzleMove() {
 
     if (puzzleMoves >= puzzleMaxMoves) {
         gameOver = true;
+        setPuzzleRetryVisible(true);
         setStatus('挑战失败（超出步数）');
         document.getElementById('info-bar').textContent = '请重试';
         return;
@@ -3767,10 +3862,127 @@ function saveHistory() {
     });
 }
 
+function updateOnlineCount(count) {
+    const countEl = document.getElementById('online-count-num');
+    if (!countEl) return;
+    countEl.textContent = String(Math.max(0, count | 0));
+}
+
+function getOrCreateHeartbeatUid() {
+    const key = 'chess_uid';
+    let uid = '';
+
+    try {
+        uid = localStorage.getItem(key) || '';
+    } catch (_) {
+        uid = '';
+    }
+
+    if (!uid) {
+        uid = `user_${Math.random().toString(36).slice(2, 11)}`;
+        try {
+            localStorage.setItem(key, uid);
+        } catch (_) {}
+    }
+    return uid;
+}
+
+async function fetchJsonWithRetry(url, options = {}, retries = 3, timeoutMs = 10000, onRetry = null) {
+    let lastError = null;
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await fetch(url, { ...options, signal: controller.signal });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            lastError = error;
+            if (attempt < retries) {
+                if (typeof onRetry === 'function') {
+                    onRetry(attempt, error);
+                }
+                await new Promise(resolve => setTimeout(resolve, 800 * attempt));
+            }
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+    throw lastError || new Error('Request failed');
+}
+
+async function sendHeartbeat() {
+    if (!heartbeatUid) return;
+    try {
+        const data = await fetchJsonWithRetry(
+            '/api/heartbeat',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: heartbeatUid }),
+            },
+            2,
+            HEARTBEAT_TIMEOUT_MS,
+        );
+        if (typeof data.online_count === 'number') {
+            updateOnlineCount(data.online_count);
+        }
+    } catch (error) {
+        console.debug('Heartbeat skipped:', error && error.message ? error.message : error);
+    }
+}
+
+function startHeartbeat() {
+    heartbeatUid = getOrCreateHeartbeatUid();
+    if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+    }
+    sendHeartbeat();
+    heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+}
+
+function startAIThinking(baseStatus) {
+    aiThinkingBaseStatus = baseStatus || '\u0041\u0049 \u601d\u8003\u4e2d';
+    aiThinkingStartTs = Date.now();
+    if (aiThinkingTimer) {
+        clearInterval(aiThinkingTimer);
+    }
+    setStatus(aiThinkingBaseStatus);
+    aiThinkingTimer = setInterval(() => {
+        const elapsed = ((Date.now() - aiThinkingStartTs) / 1000).toFixed(1);
+        setStatus(aiThinkingBaseStatus + ' (' + elapsed + 's)');
+    }, 200);
+}
+
+function stopAIThinking() {
+    if (aiThinkingTimer) {
+        clearInterval(aiThinkingTimer);
+        aiThinkingTimer = null;
+    }
+    aiThinkingStartTs = 0;
+    aiThinkingBaseStatus = '';
+}
+
+function invalidateAIRequests() {
+    aiRequestToken += 1;
+    stopAIThinking();
+    showOverlay(false);
+}
+
+function queueAIMoveRequest() {
+    aiRequestToken += 1;
+    const token = aiRequestToken;
+    startAIThinking('\u0041\u0049 \u601d\u8003\u4e2d');
+    showOverlay(true);
+    setTimeout(() => requestAIMove(token), 50);
+}
+
 /* ================================================================
    AI Communication
    ================================================================ */
-async function requestAIMove() {
+async function legacyRequestAIMove() {
     try {
         const isChar = isCharacterMode(currentDifficulty);
         const diff = getDifficulty(currentDifficulty);
@@ -3778,12 +3990,20 @@ async function requestAIMove() {
             ? { board, character: currentDifficulty }
             : { board, depth: diff.depth };
 
-        const res = await fetch('/ai-move', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        });
-        const data = await res.json();
+        const data = await fetchJsonWithRetry(
+            '/ai-move',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            },
+            AI_REQUEST_RETRIES,
+            AI_REQUEST_TIMEOUT_MS,
+            (attempt, error) => {
+                setStatus(`网络波动，正在重试 ${attempt}/${AI_REQUEST_RETRIES - 1}`);
+                console.warn('AI move retry:', attempt, error);
+            },
+        );
         showOverlay(false);
 
         /* Show dialogue if present */
@@ -3834,6 +4054,93 @@ async function requestAIMove() {
         currentTurn = 'r';
         setStatus('网络错误，请重试');
         console.error('AI request failed:', err);
+    }
+}
+
+/* Override with retry + timeout handling for unstable network */
+async function requestAIMove(requestToken = aiRequestToken) {
+    try {
+        const isChar = isCharacterMode(currentDifficulty);
+        const diff = getDifficulty(currentDifficulty);
+        const body = isChar
+            ? { board, character: currentDifficulty }
+            : { board, depth: diff.depth };
+
+        const data = await fetchJsonWithRetry(
+            '/ai-move',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            },
+            AI_REQUEST_RETRIES,
+            AI_REQUEST_TIMEOUT_MS,
+            (attempt, error) => {
+                if (requestToken !== aiRequestToken) return;
+                setStatus('\u7f51\u7edc\u6ce2\u52a8\uff0c\u6b63\u5728\u91cd\u8bd5 ' + attempt + '/' + (AI_REQUEST_RETRIES - 1));
+                console.warn('AI move retry:', attempt, error);
+            },
+        );
+
+        if (requestToken !== aiRequestToken) {
+            return;
+        }
+
+        stopAIThinking();
+        showOverlay(false);
+
+        if (data.dialogue) {
+            showDialogue(CHARACTER_NAMES[currentDifficulty] || '?', data.dialogue, data.event);
+        }
+
+        if (data.status === 'ok' && data.move) {
+            const { from, to } = data.move;
+            saveHistory();
+            doMove(from[0], from[1], to[0], to[1]);
+            renderPieces();
+
+            const label = isChar ? CHARACTER_NAMES[currentDifficulty] : ('\u96be\u5ea6: ' + diff.name);
+            const timeoutTip = data.search_timed_out ? ' | \u5df2\u542f\u7528\u6781\u901f\u51b3\u7b56' : '';
+            const info = label + ' | AI: ' + (data.nodes || '?') + ' \u8282\u70b9, ' + (data.time || '?') + 's' + timeoutTip;
+            document.getElementById('info-bar').textContent = info;
+
+            if (!gameOver) {
+                currentTurn = 'r';
+                if (!hasAnyLegalMove(board, 'r')) {
+                    gameOver = true;
+                    setStatus('\u9ed1\u65b9\u80dc\u5229\uff08\u7edd\u6740\uff09');
+                    if (isCharacterMode(currentDifficulty)) {
+                        fetchEventDialogue(currentDifficulty, 'win');
+                    }
+                } else if (isInCheck(board, 'r')) {
+                    setStatus('\u5c06\u519b\uff01 \u7ea2\u65b9\u56de\u5408');
+                    if (isCharacterMode(currentDifficulty)) {
+                        fetchEventDialogue(currentDifficulty, 'check');
+                    }
+                } else {
+                    setStatus('\u7ea2\u65b9\u56de\u5408');
+                }
+            }
+        } else {
+            gameOver = true;
+            setStatus('\u7ea2\u65b9\u80dc\u5229\uff08AI\u65e0\u5b50\u53ef\u8d70\uff09');
+            if (data.dialogue) {
+                showDialogue(CHARACTER_NAMES[currentDifficulty] || '?', data.dialogue, 'lose');
+            }
+            wins++;
+            updateWinCounter();
+            saveProfile();
+            checkUnlock();
+        }
+    } catch (err) {
+        if (requestToken !== aiRequestToken) {
+            return;
+        }
+        stopAIThinking();
+        showOverlay(false);
+        currentTurn = 'r';
+        setStatus('\u7f51\u7edc\u8fde\u63a5\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5');
+        console.error('AI request failed after retries:', err);
     }
 }
 
@@ -4006,6 +4313,7 @@ function showOverlay(show) {
 }
 
 function undoMove() {
+    invalidateAIRequests();
     if (puzzleActive) {
         setStatus('残局模式不支持悔棋');
         document.getElementById('info-bar').textContent = '请重新挑战该关卡';
@@ -4036,6 +4344,7 @@ function undoMove() {
 }
 
 function newGame() {
+    invalidateAIRequests();
     board = INITIAL_BOARD.map(row => [...row]);
     selectedPos = null;
     validMoves = [];
@@ -4050,6 +4359,7 @@ function newGame() {
     puzzleMoves = 0;
     puzzleMaxMoves = 0;
     puzzleSide = 'r';
+    setPuzzleRetryVisible(false);
     setStatus('红方回合');
     showOverlay(false);
     document.getElementById('info-bar').textContent = '';
@@ -4113,9 +4423,11 @@ function init() {
     updateWinCounter();
     updateCharPanel();
     newGame();
+    startHeartbeat();
 
     document.getElementById('btn-new').addEventListener('click', newGame);
     document.getElementById('btn-undo').addEventListener('click', undoMove);
+    document.getElementById('btn-puzzle-retry').addEventListener('click', retryCurrentPuzzle);
     document.getElementById('btn-puzzle').addEventListener('click', openPuzzlePanel);
     document.getElementById('btn-skin').addEventListener('click', openSkinPanel);
     document.getElementById('btn-char').addEventListener('click', openCharSelect);

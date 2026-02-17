@@ -157,3 +157,34 @@
 - 前端查询 /llm-status 动态判断
 - 启用时：流式 SSE 输出 LLM 台词
 - 禁用时：回退到本地台词库
+ 
+## 2026-02-17 Network and Online Update 
+- Added backend /api/heartbeat with in-memory active-user tracking and timeout cleanup. 
+- Added AI move response headers: Cache-Control, X-AI-Time, X-Worker-Pid, plus request-start logging. 
+- Added online badge UI and heartbeat polling loop in templates/index.html. 
+- Added fetch retry helper with timeout/backoff and wired AI move request retries. 
+- Updated Gunicorn timeout to 120s in gunicorn.conf.py. 
+- Validation: python -m py_compile app.py passed. 
+- Validation: Flask test client heartbeat calls returned online_count 1 then 2. 
+- Validation: Playwright client run produced no new console error artifact.
+- Revalidation: post-localization Playwright smoke run passed and online_count remained stable at 1.
+## 2026-02-17 Redis Presence + Long Wait Investigation
+- Switched online heartbeat to Redis-backed presence store (`REDIS_URL`/`PRESENCE_REDIS_URL`) with sorted-set cleanup and memory fallback.
+- Added AI search wall-clock cap via `AI_MOVE_TIME_LIMIT_SEC` in engine and `/ai-move`.
+- Added optional switch `AI_MOVE_LLM_DIALOGUE` (default off) so `/ai-move` no longer blocks on external LLM by default.
+- Exposed runtime indicators in `/stats`: `presence_mode`, `ai_move_time_limit_sec`, `ai_move_llm_dialogue`.
+- Validation: `python -m py_compile app.py engine.py` passed.
+- Validation: heartbeat endpoint returned mode and count successfully.
+- Validation: forced tiny time limit triggered `search_timed_out=True` and returned move quickly.
+- Validation: develop-web-game Playwright loop re-run after backend changes; no new `errors-*.json` emitted.
+- Investigation: depth=5 search can hit high node counts; without wall-clock guard this can create long-tail latency.
+- Investigation: `/ai-move` previously could block on external LLM call; now default path is local dialogue only.
+- Tuning: added `AI_MOVE_DEPTH5_LIMIT_SEC` (default 4s) so depth>=5 responses cap latency harder than global limit.
+- Validation: depth=5 `/ai-move` now returns around 4.0s with `search_timed_out=True` under heavy search.
+## 2026-02-17 UX Iteration (AI Wait Experience)
+- Frontend: added AI thinking timer (`AI˼���� (Xs)`) to reduce perceived freeze.
+- Frontend: added stale-response guard via request token; old AI responses no longer overwrite a new game/puzzle/undo state.
+- Frontend: when backend returns `search_timed_out`, info bar now shows `�����ü��پ���`.
+- Backend tuning: reduced default `AI_MOVE_DEPTH5_LIMIT_SEC` from 4.0 to 3.5 for faster depth-5 response.
+- Validation: depth=5 `/ai-move` returned in ~3.5s with timeout flag on complex search.
+- Validation: Playwright loop re-run with no new `errors-*.json`; full-page screenshot manually inspected.

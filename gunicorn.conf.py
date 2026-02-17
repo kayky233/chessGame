@@ -20,8 +20,8 @@ keepalive = 5
 backlog = 256          # Pending connection queue size
 
 # ---- Timeouts ----
-timeout = 30           # Kill worker if request exceeds 30s
-graceful_timeout = 10  # Grace period for in-flight requests on restart
+timeout = 120          # Allow slower AI turns without worker timeout
+graceful_timeout = 30  # Grace period for in-flight requests on restart
 
 # ---- Worker Recycling (prevents memory leaks) ----
 max_requests = 2000
