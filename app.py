@@ -11,7 +11,7 @@ Concurrency features:
 - /stats endpoint for live server metrics
 """
 
-from flask import Flask, request, jsonify, render_template, Response, stream_with_context
+from flask import Flask, request, jsonify, render_template, Response, stream_with_context, session
 from flask_cors import CORS
 from engine import XiangqiEngine
 import time
@@ -19,6 +19,11 @@ import threading
 import os
 import random
 import json
+import sqlite3
+import re
+import hashlib
+import hmac
+import secrets
 
 try:
     import redis  # type: ignore
@@ -27,6 +32,10 @@ except Exception:  # pragma: no cover
 
 app = Flask(__name__)
 CORS(app)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-this-in-production')
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', '0') == '1'
 
 
 # ================================================================
@@ -200,6 +209,205 @@ if PRESENCE_REDIS_URL:
                 'Failed to init Redis presence store, fallback to memory: %s',
                 exc,
             )
+
+
+# ================================================================
+# Match History / Leaderboard (SQLite)
+# ================================================================
+MATCH_DB_PATH = os.environ.get(
+    'MATCH_DB_PATH',
+    os.path.join(os.path.dirname(__file__), 'data', 'match_stats.db'),
+)
+MATCH_HISTORY_LIMIT_DEFAULT = 20
+MATCH_HISTORY_LIMIT_MAX = 100
+LEADERBOARD_LIMIT_DEFAULT = 20
+LEADERBOARD_LIMIT_MAX = 100
+USERNAME_RE = re.compile(r'^[a-zA-Z0-9_]{3,24}$')
+DISPLAY_NAME_MAX_LEN = 24
+PASSWORD_MIN_LEN = 6
+PASSWORD_MAX_LEN = 72
+PASSWORD_HASH_ITERATIONS = 260000
+
+
+def _safe_int(value, default, min_v=None, max_v=None):
+    try:
+        out = int(value)
+    except (TypeError, ValueError):
+        out = default
+    if min_v is not None:
+        out = max(min_v, out)
+    if max_v is not None:
+        out = min(max_v, out)
+    return out
+
+
+def _normalize_uid(raw_uid):
+    if raw_uid is None:
+        return ''
+    return str(raw_uid).strip()[:64]
+
+
+def _normalize_player_name(raw_name, uid):
+    name = str(raw_name or '').strip()
+    if not name:
+        short = uid[-6:] if uid else 'guest'
+        name = f'Guest-{short}'
+    return name[:24]
+
+
+def _normalize_result(raw_result):
+    result = str(raw_result or '').strip().lower()
+    return result if result in {'win', 'lose', 'draw'} else ''
+
+
+def _normalize_username(raw_username):
+    username = str(raw_username or '').strip().lower()
+    if not USERNAME_RE.match(username):
+        return ''
+    return username
+
+
+def _normalize_display_name(raw_name, fallback=''):
+    name = str(raw_name or '').strip()
+    if not name:
+        name = str(fallback or '').strip()
+    return name[:DISPLAY_NAME_MAX_LEN]
+
+
+def _hash_password(password):
+    salt = secrets.token_bytes(16)
+    hashed = hashlib.pbkdf2_hmac(
+        'sha256',
+        password.encode('utf-8'),
+        salt,
+        PASSWORD_HASH_ITERATIONS,
+    )
+    return f'pbkdf2_sha256${PASSWORD_HASH_ITERATIONS}${salt.hex()}${hashed.hex()}'
+
+
+def _verify_password(password, password_hash):
+    try:
+        algo, rounds, salt_hex, hash_hex = str(password_hash).split('$', 3)
+        if algo != 'pbkdf2_sha256':
+            return False
+        rounds_int = int(rounds)
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(hash_hex)
+    except Exception:
+        return False
+
+    actual = hashlib.pbkdf2_hmac(
+        'sha256',
+        password.encode('utf-8'),
+        salt,
+        rounds_int,
+    )
+    return hmac.compare_digest(actual, expected)
+
+
+def _session_player_id(user_id):
+    return f'user:{int(user_id)}'
+
+
+def _get_session_user(conn):
+    user_id = session.get('auth_user_id')
+    if not user_id:
+        return None
+    try:
+        user_id_int = int(user_id)
+    except (TypeError, ValueError):
+        session.pop('auth_user_id', None)
+        return None
+    row = conn.execute(
+        'SELECT id, username, display_name FROM users WHERE id = ?',
+        (user_id_int,),
+    ).fetchone()
+    if row is None:
+        session.pop('auth_user_id', None)
+    return row
+
+
+def _get_match_db_conn():
+    conn = sqlite3.connect(MATCH_DB_PATH, timeout=5)
+    conn.row_factory = sqlite3.Row
+    conn.execute('PRAGMA journal_mode=WAL')
+    conn.execute('PRAGMA synchronous=NORMAL')
+    return conn
+
+
+def _ensure_column(conn, table, column, ddl):
+    cols = conn.execute(f'PRAGMA table_info({table})').fetchall()
+    if any(col['name'] == column for col in cols):
+        return
+    conn.execute(f'ALTER TABLE {table} ADD COLUMN {ddl}')
+
+
+def init_match_db():
+    db_dir = os.path.dirname(MATCH_DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+
+    conn = _get_match_db_conn()
+    try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                display_name TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_ts REAL NOT NULL,
+                last_login_ts REAL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS match_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                player_id TEXT NOT NULL,
+                player_name TEXT NOT NULL,
+                user_id INTEGER,
+                is_registered INTEGER NOT NULL DEFAULT 0,
+                result TEXT NOT NULL,
+                mode TEXT NOT NULL DEFAULT 'free',
+                difficulty TEXT,
+                character_id TEXT,
+                duration_sec REAL,
+                nodes INTEGER,
+                search_timed_out INTEGER NOT NULL DEFAULT 0,
+                created_ts REAL NOT NULL
+            )
+            """
+        )
+        _ensure_column(conn, 'match_results', 'user_id', 'user_id INTEGER')
+        _ensure_column(
+            conn,
+            'match_results',
+            'is_registered',
+            'is_registered INTEGER NOT NULL DEFAULT 0',
+        )
+        conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_match_player_time ON match_results (player_id, created_ts DESC)'
+        )
+        conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_match_time ON match_results (created_ts DESC)'
+        )
+        conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_match_registered ON match_results (is_registered, created_ts DESC)'
+        )
+        conn.execute(
+            'CREATE INDEX IF NOT EXISTS idx_match_user ON match_results (user_id, created_ts DESC)'
+        )
+        conn.execute(
+            'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username)'
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+init_match_db()
 
 
 # ================================================================
@@ -808,6 +1016,398 @@ def ai_move():
     response.headers['X-AI-Time'] = str(round(dt, 3))
     response.headers['X-Worker-Pid'] = str(os.getpid())
     return response
+
+
+def _serialize_user(row):
+    if row is None:
+        return None
+    return {
+        'id': int(row['id']),
+        'username': row['username'],
+        'display_name': row['display_name'],
+    }
+
+
+@app.route('/api/auth/me')
+def auth_me():
+    conn = _get_match_db_conn()
+    try:
+        user = _get_session_user(conn)
+        return jsonify({
+            'status': 'ok',
+            'logged_in': bool(user),
+            'user': _serialize_user(user),
+        })
+    finally:
+        conn.close()
+
+
+@app.route('/api/auth/register', methods=['POST'])
+def auth_register():
+    data = request.get_json(silent=True) or {}
+    username = _normalize_username(data.get('username'))
+    password = str(data.get('password') or '')
+    display_name = _normalize_display_name(data.get('display_name'), fallback=username)
+
+    if not username:
+        return jsonify({'status': 'error', 'message': 'Invalid username (3-24 chars: letters, numbers, _)'}), 400
+    if len(password) < PASSWORD_MIN_LEN or len(password) > PASSWORD_MAX_LEN:
+        return jsonify({'status': 'error', 'message': f'Password must be {PASSWORD_MIN_LEN}-{PASSWORD_MAX_LEN} chars'}), 400
+    if not display_name:
+        return jsonify({'status': 'error', 'message': 'Display name is required'}), 400
+
+    now_ts = time.time()
+    password_hash = _hash_password(password)
+    conn = _get_match_db_conn()
+    try:
+        exists = conn.execute(
+            'SELECT id FROM users WHERE username = ?',
+            (username,),
+        ).fetchone()
+        if exists is not None:
+            return jsonify({'status': 'error', 'message': 'Username already exists'}), 409
+
+        try:
+            cur = conn.execute(
+                """
+                INSERT INTO users (username, display_name, password_hash, created_ts, last_login_ts)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (username, display_name, password_hash, now_ts, now_ts),
+            )
+        except sqlite3.IntegrityError:
+            return jsonify({'status': 'error', 'message': 'Username already exists'}), 409
+        conn.commit()
+        user_id = int(cur.lastrowid)
+        user_row = conn.execute(
+            'SELECT id, username, display_name FROM users WHERE id = ?',
+            (user_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    session['auth_user_id'] = user_id
+    return jsonify({'status': 'ok', 'logged_in': True, 'user': _serialize_user(user_row)})
+
+
+@app.route('/api/auth/login', methods=['POST'])
+def auth_login():
+    data = request.get_json(silent=True) or {}
+    username = _normalize_username(data.get('username'))
+    password = str(data.get('password') or '')
+    if not username or not password:
+        return jsonify({'status': 'error', 'message': 'Username and password are required'}), 400
+
+    conn = _get_match_db_conn()
+    try:
+        row = conn.execute(
+            """
+            SELECT id, username, display_name, password_hash
+            FROM users
+            WHERE username = ?
+            """,
+            (username,),
+        ).fetchone()
+        if row is None or not _verify_password(password, row['password_hash']):
+            return jsonify({'status': 'error', 'message': 'Invalid username or password'}), 401
+
+        now_ts = time.time()
+        conn.execute(
+            'UPDATE users SET last_login_ts = ? WHERE id = ?',
+            (now_ts, int(row['id'])),
+        )
+        conn.commit()
+        user_row = conn.execute(
+            'SELECT id, username, display_name FROM users WHERE id = ?',
+            (int(row['id']),),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    session['auth_user_id'] = int(user_row['id'])
+    return jsonify({'status': 'ok', 'logged_in': True, 'user': _serialize_user(user_row)})
+
+
+@app.route('/api/auth/logout', methods=['POST'])
+def auth_logout():
+    session.pop('auth_user_id', None)
+    return jsonify({'status': 'ok', 'logged_in': False})
+
+
+@app.route('/api/auth/display-name', methods=['POST'])
+def auth_update_display_name():
+    data = request.get_json(silent=True) or {}
+    new_name = _normalize_display_name(data.get('display_name'))
+    if not new_name:
+        return jsonify({'status': 'error', 'message': 'Display name is required'}), 400
+
+    conn = _get_match_db_conn()
+    try:
+        user = _get_session_user(conn)
+        if user is None:
+            return jsonify({'status': 'error', 'message': 'Login required'}), 401
+        conn.execute(
+            'UPDATE users SET display_name = ? WHERE id = ?',
+            (new_name, int(user['id'])),
+        )
+        conn.commit()
+        user_row = conn.execute(
+            'SELECT id, username, display_name FROM users WHERE id = ?',
+            (int(user['id']),),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    return jsonify({'status': 'ok', 'user': _serialize_user(user_row)})
+
+
+@app.route('/api/match-result', methods=['POST'])
+def match_result():
+    """Record one completed match result for history/leaderboard."""
+    data = request.get_json(silent=True) or {}
+
+    result = _normalize_result(data.get('result'))
+    if not result:
+        return jsonify({'status': 'error', 'message': 'Invalid result'}), 400
+
+    mode = str(data.get('mode') or 'free').strip().lower()
+    if mode not in {'free', 'puzzle'}:
+        mode = 'free'
+
+    difficulty = str(data.get('difficulty') or '')[:32]
+    character_id = str(data.get('character_id') or '')[:32]
+
+    try:
+        duration_sec = float(data.get('duration_sec')) if data.get('duration_sec') is not None else None
+    except (TypeError, ValueError):
+        duration_sec = None
+    if duration_sec is not None:
+        duration_sec = max(0.0, min(duration_sec, 36000.0))
+
+    try:
+        nodes = int(data.get('nodes')) if data.get('nodes') is not None else None
+    except (TypeError, ValueError):
+        nodes = None
+    if nodes is not None:
+        nodes = max(0, min(nodes, 1000000000))
+
+    timed_out = 1 if bool(data.get('search_timed_out')) else 0
+    created_ts = time.time()
+
+    conn = _get_match_db_conn()
+    try:
+        auth_user = _get_session_user(conn)
+        if auth_user is not None:
+            uid = _session_player_id(auth_user['id'])
+            player_name = _normalize_display_name(
+                data.get('player_name'),
+                fallback=auth_user['display_name'],
+            )
+            user_id = int(auth_user['id'])
+            is_registered = 1
+        else:
+            uid = _normalize_uid(data.get('uid'))
+            if not uid:
+                return jsonify({'status': 'error', 'message': 'Missing uid'}), 400
+            player_name = _normalize_player_name(data.get('player_name'), uid)
+            user_id = None
+            is_registered = 0
+
+        cur = conn.execute(
+            """
+            INSERT INTO match_results (
+                player_id, player_name, user_id, is_registered, result, mode, difficulty, character_id,
+                duration_sec, nodes, search_timed_out, created_ts
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                uid,
+                player_name,
+                user_id,
+                is_registered,
+                result,
+                mode,
+                difficulty,
+                character_id,
+                duration_sec,
+                nodes,
+                timed_out,
+                created_ts,
+            ),
+        )
+        conn.commit()
+        row_id = int(cur.lastrowid)
+    finally:
+        conn.close()
+
+    return jsonify({'status': 'ok', 'id': row_id})
+
+
+@app.route('/api/match-history')
+def match_history():
+    """Return recent match history for one player uid."""
+    limit = _safe_int(
+        request.args.get('limit'),
+        MATCH_HISTORY_LIMIT_DEFAULT,
+        min_v=1,
+        max_v=MATCH_HISTORY_LIMIT_MAX,
+    )
+
+    conn = _get_match_db_conn()
+    try:
+        auth_user = _get_session_user(conn)
+        if auth_user is not None:
+            uid = _session_player_id(auth_user['id'])
+            login_required = False
+        else:
+            uid = _normalize_uid(request.args.get('uid'))
+            if not uid:
+                return jsonify({'status': 'error', 'message': 'Missing uid (or login required)'}), 400
+            login_required = True
+
+        rows = conn.execute(
+            """
+            SELECT
+                id, result, mode, difficulty, character_id, duration_sec,
+                nodes, search_timed_out, created_ts
+            FROM match_results
+            WHERE player_id = ?
+            ORDER BY created_ts DESC
+            LIMIT ?
+            """,
+            (uid, limit),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    matches = []
+    for row in rows:
+        matches.append({
+            'id': int(row['id']),
+            'result': row['result'],
+            'mode': row['mode'],
+            'difficulty': row['difficulty'] or '',
+            'character_id': row['character_id'] or '',
+            'duration_sec': row['duration_sec'],
+            'nodes': row['nodes'],
+            'search_timed_out': bool(row['search_timed_out']),
+            'created_ts': row['created_ts'],
+        })
+
+    return jsonify({
+        'status': 'ok',
+        'uid': uid,
+        'is_guest_uid': login_required,
+        'count': len(matches),
+        'matches': matches,
+    })
+
+
+@app.route('/api/leaderboard')
+def leaderboard():
+    """Return global leaderboard ranked by total wins."""
+    limit = _safe_int(
+        request.args.get('limit'),
+        LEADERBOARD_LIMIT_DEFAULT,
+        min_v=1,
+        max_v=LEADERBOARD_LIMIT_MAX,
+    )
+    min_games = _safe_int(request.args.get('min_games'), 1, min_v=1, max_v=999999)
+    registered_only = str(request.args.get('registered_only', '1')).strip().lower() not in {'0', 'false', 'no'}
+    scope = str(request.args.get('scope') or 'all').strip().lower()
+    mode = str(request.args.get('mode') or 'free').strip().lower()
+    if mode not in {'free', 'puzzle', 'all'}:
+        mode = 'free'
+
+    min_ts = None
+    if scope == '7d':
+        min_ts = time.time() - 7 * 86400
+    elif scope == '30d':
+        min_ts = time.time() - 30 * 86400
+    else:
+        scope = 'all'
+
+    where_clauses = ['1=1']
+    params = []
+    if min_ts is not None:
+        where_clauses.append('created_ts >= ?')
+        params.append(min_ts)
+    if mode != 'all':
+        where_clauses.append('mode = ?')
+        params.append(mode)
+    if registered_only:
+        where_clauses.append('is_registered = 1')
+    where_sql = ' AND '.join(where_clauses)
+
+    query = f"""
+        WITH agg AS (
+            SELECT
+                player_id,
+                SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) AS wins,
+                SUM(CASE WHEN result = 'lose' THEN 1 ELSE 0 END) AS losses,
+                SUM(CASE WHEN result = 'draw' THEN 1 ELSE 0 END) AS draws,
+                COUNT(*) AS games,
+                MAX(created_ts) AS last_played_ts
+            FROM match_results
+            WHERE {where_sql}
+            GROUP BY player_id
+        ),
+        named AS (
+            SELECT
+                a.*,
+                (
+                    SELECT mr.player_name
+                    FROM match_results mr
+                    WHERE mr.player_id = a.player_id
+                    ORDER BY mr.id DESC
+                    LIMIT 1
+                ) AS player_name
+            FROM agg a
+        )
+        SELECT
+            player_id,
+            COALESCE(player_name, player_id) AS player_name,
+            wins,
+            losses,
+            draws,
+            games,
+            ROUND((wins * 100.0) / games, 1) AS win_rate,
+            last_played_ts
+        FROM named
+        WHERE games >= ?
+        ORDER BY wins DESC, win_rate DESC, games DESC, last_played_ts DESC
+        LIMIT ?
+    """
+
+    conn = _get_match_db_conn()
+    try:
+        rows = conn.execute(query, params + [min_games, limit]).fetchall()
+    finally:
+        conn.close()
+
+    entries = []
+    for i, row in enumerate(rows, start=1):
+        entries.append({
+            'rank': i,
+            'player_id': row['player_id'],
+            'player_name': row['player_name'],
+            'wins': int(row['wins']),
+            'losses': int(row['losses']),
+            'draws': int(row['draws']),
+            'games': int(row['games']),
+            'win_rate': float(row['win_rate']) if row['win_rate'] is not None else 0.0,
+            'last_played_ts': row['last_played_ts'],
+        })
+
+    return jsonify({
+        'status': 'ok',
+        'scope': scope,
+        'mode': mode,
+        'registered_only': registered_only,
+        'min_games': min_games,
+        'count': len(entries),
+        'entries': entries,
+    })
 
 
 @app.route('/dialogue', methods=['POST'])

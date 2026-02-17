@@ -188,3 +188,30 @@
 - Backend tuning: reduced default `AI_MOVE_DEPTH5_LIMIT_SEC` from 4.0 to 3.5 for faster depth-5 response.
 - Validation: depth=5 `/ai-move` returned in ~3.5s with timeout flag on complex search.
 - Validation: Playwright loop re-run with no new `errors-*.json`; full-page screenshot manually inspected.
+## 2026-02-17 UX Iteration (Match History + Leaderboard)
+- Frontend: completed rank panel interactions (open/close, tabs, refresh, nickname save, Enter-key save).
+- Frontend: added safe HTML escaping for rendered history/leaderboard fields to avoid name injection issues.
+- Frontend: implemented per-match lifecycle fields (`matchReported`, `matchStartTs`) and duration helper.
+- Frontend: wired result reporting on free-mode game end paths:
+  - player wins by capturing `b_jiang`
+  - player wins when AI has no legal move
+  - player loses when AI captures `r_shuai` or delivers checkmate
+- Frontend: ensured puzzle mode does not report rank data and resets match-tracking state on puzzle start.
+- Backend: SQLite endpoints already in place for `/api/match-result`, `/api/match-history`, `/api/leaderboard`; confirmed live with HTTP tests.
+- Validation: `python -m py_compile app.py engine.py` passed.
+- Validation: Flask test client + HTTP local checks confirmed insert/history/leaderboard responses return `200` and expected payloads.
+- Validation: develop-web-game Playwright client re-run produced no `errors-*.json` artifacts.
+## 2026-02-17 UX Iteration (Account Registration + Logged-in Ranking)
+- Backend: added session-based auth (`/api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`, `/api/auth/display-name`).
+- Backend: added `users` table with PBKDF2 password hash storage and login state via Flask session cookie.
+- Backend: extended `match_results` with `user_id` + `is_registered` and migration-safe column creation.
+- Backend: `/api/match-result` now auto-binds to logged-in account when session exists; guest records still supported via `uid`.
+- Backend: `/api/match-history` now supports logged-in fetch without `uid`; guest mode remains backward-compatible.
+- Backend: `/api/leaderboard` now defaults to `registered_only=1` to avoid guest IDs polluting rankings.
+- Frontend: rank panel now shows account state (guest/logged-in), adds login/register entry, and logout action.
+- Frontend: added dedicated auth modal with login/register tabs and submit handling.
+- Frontend: nickname save now updates server-side display name when logged in; guest mode still stores locally.
+- Frontend: leaderboard tab now prompts login for guests and shows explicit guidance.
+- Validation: `python -m py_compile app.py engine.py` passed.
+- Validation: Flask test client covered register -> me -> rename -> match submit -> history -> leaderboard -> logout flow.
+- Validation: develop-web-game Playwright smoke run completed with no new `errors-*.json` artifacts.
